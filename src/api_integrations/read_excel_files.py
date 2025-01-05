@@ -28,7 +28,7 @@ class SharePointContext:
         else:
             print()
 
-    def read_excel_file(self, file_id, sheet_name="Sheet1"):
+    def read_excel_file(self, file_id, sheet_name="Sheet1", dtype=None):
         # Retrieve the Excel file by its ID
         file_info = self.web.get_file_by_id(file_id)
         self.ctx.load(file_info)
@@ -36,16 +36,16 @@ class SharePointContext:
 
         # Read the Excel file contents into a pandas dataframe
         with io.BytesIO(file_info.read()) as stream:
-            df = pd.read_excel(stream, sheet_name=sheet_name, engine='openpyxl')
+            df = pd.read_excel(stream, sheet_name=sheet_name, engine='openpyxl', dtype=dtype)
         return df
 
     def write_df_to_excel(self, df, folder, filename, sheet_name="Sheet1"):
         # Upload the Excel file to SharePoint
-        folder = self.web.get_folder_by_server_relative_url(self.save_url + folder)
+        sp_folder = self.web.get_folder_by_server_relative_url(self.save_url + folder)
         file_info = io.BytesIO()
         with pd.ExcelWriter(file_info, engine='xlsxwriter') as writer:
             df.to_excel(writer, sheet_name=sheet_name, index=False)
         file_content = file_info.getvalue()
-        file_upload = folder.upload_file(filename, file_content)
+        file_upload = sp_folder.upload_file(filename, file_content)
         self.ctx.load(file_upload)
         self.ctx.execute_query()
