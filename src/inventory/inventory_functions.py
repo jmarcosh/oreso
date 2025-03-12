@@ -5,7 +5,8 @@ DELIVERED = 'Delivered'
 ORDERED = 'Ordered'
 DELIVERED_TOTAL = 'Delivered_Total'
 CANTIDAD_CUMSUM = 'Cantidad_Cumsum'
-MISSING = 'Missing'
+CANTIDAD_SPLIT = 'Cantidad_Split'
+AVAILABLE = 'Available'
 
 
 def read_files_and_backup_inventory():
@@ -59,35 +60,53 @@ def summarize_po_deliveries_by_lot_number(df):
     ['RD', 'WAREHOUSE_CODE', 'STYLE', 'UPC', 'SKU', 'Cantidad', DELIVERED]]
     summary = summary.reset_index().sort_values(by=['SKU', 'index']).drop('index', axis=1).reset_index(drop=True)
     summary[ORDERED] = summary.groupby('SKU').apply(
-        lambda group: group[DELIVERED].where(group.index != group.index[-1], group['Cantidad'])
-    ).reset_index(drop=True)
+        lambda group: group[DELIVERED].where(group.index != group.index[-1], group['Cantidad'])).reset_index(drop=True).squeeze()
     summary = summary[summary[ORDERED] > 0]
     summary.to_csv('../../files/inventory/po_delivered.csv', index=False)
     return summary
 
 
 inventory, po_by_store = read_files_and_backup_inventory()
-inventory = inventory[inventory['SKU'] == 1145889908]
-po_by_store = po_by_store[po_by_store['Sku'] == 1145889908]
+sku = 1145889908
+# inventory = inventory[inventory['SKU'] == sku]
+# po_by_store = po_by_store[po_by_store['Sku'] == sku]
+# 1018195077 multiple sku no split
+# 1035942633 split by store
+# 1145889908 missing
 split_inventory = split_df_by_sku(inventory)
 po = po_by_store.groupby(['Sku']).agg({'Cantidad': 'sum'}).reset_index(names='SKU')
 po_copy = po.copy()
 new_inventory_dfs = assign_deliveries_by_lot_number(split_inventory, po_copy)
 new_inventory = update_inventory_in_memory(new_inventory_dfs)
 po_summary = summarize_po_deliveries_by_lot_number(new_inventory)
-split_po_summary = split_df_by_sku(po_summary)[1:]
+po_dfs = split_df_by_sku(po_summary)[1:]
 
-po_by_store_delivered_dfs = []
-for po_summary_df in split_po_summary:
-    po_by_store_delivered = po_by_store.rename({'Sku': 'SKU'}, axis=1).merge(
-        po_summary_df[['SKU', 'WAREHOUSE_CODE', DELIVERED]].rename({DELIVERED: DELIVERED_TOTAL}, axis=1), on='SKU', how='left')
-    po_by_store_delivered[CANTIDAD_CUMSUM] = po_by_store_delivered.groupby('SKU')['Cantidad'].cumsum()
-    po_by_store_delivered[MISSING] = po_by_store_delivered[DELIVERED_TOTAL] - po_by_store_delivered[CANTIDAD_CUMSUM]
-    po_by_store_delivered[DELIVERED] = (po_by_store_delivered['Cantidad'] + po_by_store_delivered[MISSING].where(po_by_store_delivered[MISSING] < 0, 0)).clip(lower=0)
-    po_by_store_delivered_dfs.append(po_by_store_delivered.copy())
-    po_by_store['Cantidad'] = po_by_store['Cantidad'] - po_by_store_delivered[DELIVERED]
-    po_by_store = po_by_store.loc[po_by_store['Cantidad'] > 0]
-# merge with the original_po_by_store
+dfs = []
+po_by_store_temp = po_by_store.copy()
+po_by_store_temp[CANTIDAD_SPLIT] = po_by_store_temp['Cantidad']
+for unique_po in po_dfs:
+    df = po_by_store_temp.rename({'Sku': 'SKU'}, axis=1).merge(
+        unique_po[['SKU', 'WAREHOUSE_CODE', DELIVERED]].rename({DELIVERED: DELIVERED_TOTAL}, axis=1), on='SKU', how='left')
+    df.index = po_by_store_temp.index
+    df[CANTIDAD_CUMSUM] = df.groupby('SKU')[CANTIDAD_SPLIT].cumsum()
+    df[AVAILABLE] = df[DELIVERED_TOTAL].fillna(0) - df[CANTIDAD_CUMSUM]
+    df[DELIVERED] = (df[CANTIDAD_SPLIT] + df[AVAILABLE].where(df[AVAILABLE] < 0, 0)).clip(lower=0)
+    cantidad_remaining = (df[CANTIDAD_SPLIT] - df[DELIVERED]).copy()
+    # df = df.loc[df[DELIVERED] > 0]
+    dfs.append(df.copy())
+    po_by_store_temp[CANTIDAD_SPLIT] = cantidad_remaining
+    po_by_store_temp = po_by_store_temp.loc[po_by_store_temp[CANTIDAD_SPLIT] > 0]
+
+po_by_store_delivered = pd.concat(dfs)
+po_by_store_delivered = po_by_store_delivered.reset_index().sort_values(by=['index', 'WAREHOUSE_CODE']).drop(columns=['index']).reset_index(drop=True)
+po_by_store_delivered[CANTIDAD_SPLIT] = po_by_store_delivered.groupby(['SKU', 'Tienda']).apply(
+    lambda group: group[DELIVERED].where(group.index != group.index[-1],
+                                         group[CANTIDAD_SPLIT] if len(group) > 1 else group[CANTIDAD_SPLIT])).reset_index(drop=True)
+po_by_store_delivered = po_by_store_delivered.loc[po_by_store_delivered[CANTIDAD_SPLIT] > 0]
 
 # .drop([DELIVERED_TOTAL, CANTIDAD_CUMSUM, MISSING], axis=1)
+
+po_by_store_delivered.to_csv('/home/jmarcosh/Downloads/po_delivered_by_store.csv', index=False)
+po_by_store.to_csv('/home/jmarcosh/Downloads/po_by_store.csv', index=False)
+
 x=1
