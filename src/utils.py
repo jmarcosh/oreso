@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import pandas as pd
 import os
+import re
 
 from typing import Optional
 
@@ -95,8 +96,7 @@ def add_oreso_info(df: pd.DataFrame, suffix: str) -> pd.DataFrame:
     catalog.rename({'classification': 'group'}, axis=1, inplace=True)
     df['sku'] = [float(x) for x in df['sku']]
     catalog['generic_sku'] = pd.to_numeric(catalog['generic_sku'], errors='coerce').astype('float')
-    catalog['style_number'] = [x.split('-', 1)[0][2:] for x in catalog['style']]
-    catalog['size'] = [x.rsplit('-', 1)[1] if len(x.rsplit('-', 1)) > 1 else None for x in catalog['style']]
+    catalog = parse_style_info(catalog)
     return multi_column_merge(df, catalog, keys=['sku', 'generic_sku'], how='left', suffixes=(suffix, '_oreso'))
 
 
@@ -188,7 +188,13 @@ def process_distribution_file(df):
     df = df[(df['delivery_date'].notna()) & (df['opid'] == 'V')]
     df = process_currency_columns(df)
     df['delivery_date'] = pd.to_datetime(df['delivery_date'], format='%m/%d/%Y')
-    df['style_number'] = [x.split('-', 1)[0][2:] for x in df['style']]
+    df = parse_style_info(df)
+    return df
+
+
+def parse_style_info(df):
+    df['style'] = df['style'].str.replace(' ', '')
+    df['style_number'] = [re.sub(r'\D', '', x.split('-', 1)[0]) for x in df['style']]
     df['size'] = [x.rsplit('-', 1)[1] if len(x.rsplit('-', 1)) > 1 else None for x in df['style']]
     df['style_color'] = [x.rsplit('-', 1)[0] if len(x.rsplit('-', 1)) > 1 else None for x in df['style']]
     return df

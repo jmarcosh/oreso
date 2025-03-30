@@ -54,8 +54,8 @@ def add_inventory_columns(df, grouping_unit, date_resolution='daily'):
     df['delivered_cum_fill'] = df.groupby(grouping_unit)['delivered_cum'].ffill()
     df = df.dropna(subset=['delivered_cum_fill']).sort_values(by=[grouping_unit, 'date'])
 
-    df['inventory_eod'] = df['delivered_cum_fill'] - df['units_cum'].fillna(0)
-    df['inventory_bod'] = df.groupby(grouping_unit)['inventory_eod'].shift(1).fillna(df['delivered_cum'])
+    df['inventory_eop'] = df['delivered_cum_fill'] - df['units_cum'].fillna(0)
+    df['inventory_bop'] = df.groupby(grouping_unit)['inventory_eop'].shift(1).fillna(df['delivered_cum'])
     return df
 
 def add_cost_columns(df, grouping_unit):
