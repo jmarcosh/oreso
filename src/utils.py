@@ -88,7 +88,7 @@ def add_oreso_info(df: pd.DataFrame, suffix: str) -> pd.DataFrame:
     catalog_path = os.path.join(utils_dir, '..', 'files/sales/catalog.csv')
     catalog = pd.read_csv(catalog_path)
     catalog.columns = ['rd', 'sku', 'generic_sku', 'style', 'size', 'description', 'upc', 'brand', 'classification',
-                       'photo', 'wsp', 'style_color', 'style_liverpool', 'rp', 'rp_no_vat', '1', '2', '3', '4', '5']
+                       'photo', 'wsp', 'style_color', 'style_liverpool', 'rp', 'rp_no_vat', '1', '2', '3', '4']
     # catalog.drop(['style_liverpool'], axis=1, inplace=True)
     # for col in ['wsp', 'rp', 'rp_no_vat']:
     #     catalog[col] = [float(x[1:]) if isinstance(x, str) else 0 for x in catalog[col]]

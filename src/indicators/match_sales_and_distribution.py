@@ -35,26 +35,25 @@ def merge_sales_and_distribution(sales_df, distribution_df, grouping_unit, date_
     merged_df = merged_df.drop_duplicates(subset=['sale_date', grouping_unit], keep='first')
     return merged_df
 
-def fill_missing_dates(group, grouping_unit, date_resolution, date_column_name):
+def fill_missing_dates(df, grouping_unit, date_resolution, date_column_name):
     freq = 'D' if date_resolution == 'daily' else 'MS'
     # Define the group's specific date range
-    group_date_range = pd.date_range(start=group[date_column_name].min(), end=group[date_column_name].max(), freq=freq)
+    group_date_range = pd.date_range(start=df[date_column_name].min(), end=df[date_column_name].max(), freq=freq)
 
     # Set date as index and reindex to fill missing dates
-    group = group.set_index(date_column_name).reindex(group_date_range)
+    df = df.set_index(date_column_name).reindex(group_date_range)
 
-    group[['year', grouping_unit]] = group[['year', grouping_unit]].ffill()
-    return group.reset_index().rename(columns={'index': date_column_name})
+    cols_to_ffill = ['year', grouping_unit] + (['group'] if grouping_unit != 'group' else [])
+    df[cols_to_ffill] = df[cols_to_ffill].ffill()
+
+    return df.reset_index().rename(columns={'index': date_column_name})
 
 def add_inventory_columns(df, grouping_unit, date_resolution='daily'):
-    df[['mxn_cum', 'units_cum']] = (
-        df.fillna({'mxn': 0, 'units': 0}).groupby(grouping_unit)[['mxn', 'units']].cumsum()
+    df[['units_cum', 'delivered_cum']] = (
+        df.fillna({'units': 0, 'delivered': 0}).groupby(grouping_unit)[['units', 'delivered']].cumsum()
     )
-    df['delivered_cum'] = df.groupby(grouping_unit)['delivered'].cumsum()
-    df['delivered_cum_fill'] = df.groupby(grouping_unit)['delivered_cum'].ffill()
-    df = df.dropna(subset=['delivered_cum_fill']).sort_values(by=[grouping_unit, 'date'])
-
-    df['inventory_eop'] = df['delivered_cum_fill'] - df['units_cum'].fillna(0)
+    df = df[df['delivered_cum'] != 0].sort_values(by=[grouping_unit, 'date']).reset_index(drop=True)
+    df['inventory_eop'] = df['delivered_cum'] - df['units_cum'].fillna(0)
     df['inventory_bop'] = df.groupby(grouping_unit)['inventory_eop'].shift(1).fillna(df['delivered_cum'])
     return df
 
