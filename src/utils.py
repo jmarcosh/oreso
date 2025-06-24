@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 import pandas as pd
 import os
-
+import itertools
+import re
 from typing import Optional
 
 
@@ -9,7 +10,12 @@ def process_liverpool_file(df: pd.DataFrame) -> pd.DataFrame:
     if len(df.columns) == 9:
         df.columns = ["sale_date", "sku", "description", "status", "style_lvp", "upc", "bus",
                          "units", "mxn"]
-    if 'sku' in df.columns and 'sale_date' in df.columns:
+    elif len(df.columns) == 11:
+        df.columns = ["sale_date", "sku", "description", "status", "style_lvp", "upc", "bus",
+                         "store_id", "store", "units", "mxn"]
+    if 'store_id' in df.columns and 'sale_date' in df.columns:
+        df = df[(df['store_id'] != 'Resultado')].reset_index(drop=True)
+    elif 'sku' in df.columns and 'sale_date' in df.columns:
         df = df[(~df['sale_date'].str.contains('Resultado', na=False)) &
                 (~df['sku'].str.contains('Resultado', na=False))].reset_index(drop=True)
     elif 'sale_date' in df.columns:
@@ -29,7 +35,7 @@ def process_suburbia_sales_file(df: pd.DataFrame) -> pd.DataFrame:
     df = df[['FECHA_DIA', 'MATERIAL', 'MATERIAL_T', 'ESTATUS_ARTICULO', 'MARCA', 'TIENDA', 'EAN', 'VENTA_NETA_ANTES_MSI',
              'VENTA_NETA_LC', 'VENTA_PZAS', 'COSTO_DE_LO_VENDIDO']]
     df.columns = ["sale_date", "sku", "description", "status", 'brand', "store", "upc", "mxn", "net_mxn", "units", "cost_sub"]
-    df = df[(~df['mxn'].isna())]
+    df = df[(~df['net_mxn'].isna())]
     df['sale_date'] = [parse_date(x) for x in df['sale_date']]
     # df['week'] = [x + timedelta(days=6 - x.weekday()) for x in df['sale_date']]
     # df['year'] = df['sale_date'].dt.year
@@ -84,20 +90,37 @@ def multi_column_merge(df1, df2, keys, how='left', suffixes=('_x', '_y')):
 
 def add_oreso_info(df: pd.DataFrame, suffix: str) -> pd.DataFrame:
     utils_dir = os.path.dirname(__file__)
-    catalog_path = os.path.join(utils_dir, '..', 'files/sales/catalog.csv')
-    catalog = pd.read_csv(catalog_path)
-    catalog.columns = ['rd', 'sku', 'generic_sku', 'style', 'size', 'description', 'upc', 'brand', 'classification',
-                       'photo', 'wsp', 'style_color', 'style_liverpool', 'rp', 'rp_no_vat', '1', '2', '3', '4', '5']
-    # catalog.drop(['style_liverpool'], axis=1, inplace=True)
-    # for col in ['wsp', 'rp', 'rp_no_vat']:
-    #     catalog[col] = [float(x[1:]) if isinstance(x, str) else 0 for x in catalog[col]]
-    catalog = catalog[['sku', 'generic_sku', 'style', 'brand', 'rd', 'classification']]
-    catalog.rename({'classification': 'group'}, axis=1, inplace=True)
-    df['sku'] = [float(x) for x in df['sku']]
+    catalogs = []
+    for catalog_file in ['catalog_2021_prev', 'catalog']:
+        catalog_path = os.path.join(utils_dir, '..', f'files/sales/{catalog_file}.csv')
+        catalog_temp = pd.read_csv(catalog_path)
+        column_names = ['rd', 'sku', 'generic_sku', 'style', 'size', 'description', 'upc', 'brand', 'classification',
+                           'photo', 'wsp', 'style_color', 'style_liverpool', 'rp', 'rp_no_vat']
+        columns_no_name = len(catalog_temp.columns) - len(column_names)
+        additional_names = [str(i) for i in range(columns_no_name)]
+        catalog_temp.columns = column_names + additional_names
+        # catalog.drop(['style_liverpool'], axis=1, inplace=True)
+        # for col in ['wsp', 'rp', 'rp_no_vat']:
+        #     catalog[col] = [float(x[1:]) if isinstance(x, str) else 0 for x in catalog[col]]
+        catalog_temp = catalog_temp[['sku', 'generic_sku', 'style', 'brand', 'rd', 'classification']]
+        catalog_temp = catalog_temp.dropna(how='all')
+        catalog_temp.rename({'classification': 'group'}, axis=1, inplace=True)
+        catalogs.append(catalog_temp)
+    catalog = pd.concat(catalogs, ignore_index=True)
+    catalog = catalog.drop_duplicates(subset=['sku'], keep='last')
     catalog['generic_sku'] = pd.to_numeric(catalog['generic_sku'], errors='coerce').astype('float')
-    catalog['style_number'] = [x.split('-', 1)[0][2:] for x in catalog['style']]
-    catalog['size'] = [x.rsplit('-', 1)[1] if len(x.rsplit('-', 1)) > 1 else None for x in catalog['style']]
-    return multi_column_merge(df, catalog, keys=['sku', 'generic_sku'], how='left', suffixes=(suffix, '_oreso'))
+    df['sku'] = [float(x) for x in df['sku']]
+    df_merged = multi_column_merge(df, catalog, keys=['sku', 'generic_sku'], how='left', suffixes=(suffix, '_oreso'))
+    df_merged['style'] = df_merged['style'].str.replace(' ', '')
+    style_info = [
+        (
+            re.sub(r'\D', '', x.split('-', 1)[0]) if isinstance(x, str) else None,
+            x.rsplit('-', 1)[1] if isinstance(x, str) and '-' in x else None
+        )
+        for x in df_merged['style']
+    ]
+    df_merged['style_number'], df_merged['size'] = zip(*style_info)
+    return df_merged
 
 
 def create_df_with_all_combinations(date_min: datetime, date_max: datetime, stores: list = False,
@@ -115,6 +138,34 @@ def create_df_with_all_combinations(date_min: datetime, date_max: datetime, stor
             colnames.append(name)
             combinations = [sublist + [element] for sublist in combinations for element in lst]
     return pd.DataFrame(combinations, columns=colnames)
+
+def expand_df_with_all_combinations(df, freq, grouping_cols, date_col='sale_date'):
+    # Get the min and max dates
+    min_date = df[date_col].min()
+    max_date = df[date_col].max()
+
+    # Create full date range
+    full_dates = pd.date_range(start=min_date, end=max_date, freq=freq)
+
+    # Get all unique combinations of grouping columns
+    group_values = df[grouping_cols].drop_duplicates()
+
+    # Build cartesian product of full_dates x unique group combinations
+    full_combinations = pd.DataFrame(
+        list(itertools.product(full_dates, group_values.itertuples(index=False, name=None))),
+        columns=[date_col, 'group_comb']
+    )
+
+    # Split the tuple of group values into separate columns
+    group_cols_df = pd.DataFrame(full_combinations['group_comb'].tolist(), columns=grouping_cols)
+    full_combinations_df = pd.concat([full_combinations[[date_col]], group_cols_df], axis=1)
+
+    # Merge with original data
+    result = full_combinations_df.merge(df, on=[date_col] + grouping_cols, how='left')
+
+    # Sort and return
+    result = result.sort_values(by=grouping_cols + [date_col]).reset_index(drop=True)
+    return result
 
 
 def find_closest_non_zero(lst, index):
@@ -188,6 +239,7 @@ def process_distribution_file(df):
     df = df[(df['delivery_date'].notna()) & (df['opid'] == 'V')]
     df = process_currency_columns(df)
     df['delivery_date'] = pd.to_datetime(df['delivery_date'], format='%m/%d/%Y')
+    df['style'] = df['style'].str.replace(' ', '')
     df['style_number'] = [x.split('-', 1)[0][2:] for x in df['style']]
     df['size'] = [x.rsplit('-', 1)[1] if len(x.rsplit('-', 1)) > 1 else None for x in df['style']]
     df['style_color'] = [x.rsplit('-', 1)[0] if len(x.rsplit('-', 1)) > 1 else None for x in df['style']]

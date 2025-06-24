@@ -14,9 +14,11 @@ costing_structure = {'maiden_top': 1.23,
                      'private_label': 1.15,
                      'tahari': 1.22,
                      'no_commission': 1,
-                     'commission_15': 1.15}
+                     'commission_15': 1.15,
+                     'splendid_top': 1.23,
+                     'splendid_bottom': 1.19,}
 
-customer_discounts = {'lvp': 0.88, 'sub': 0.8}
+customer_net_payments = {'lvp': 0.88, 'sub': 0.8}
 
 retention_rate = 0.1015
 
@@ -115,7 +117,7 @@ unit_other_charges_mx = _compute_unit_other_charges(product_data, unit_weight)
 
 unit_basic_cost_mx = (unit_origin_cost_mx + unit_other_charges_mx + unit_freight_mx + unit_commission_mx + unit_tax_mx +
                       unit_retention_mx * retention_rate)
-net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_discounts[x] for x in product_data['CUSTOMER']]
+net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['CUSTOMER']]
 unit_margin = 1 - (unit_basic_cost_mx / 1.16) / net_wholesale_price
 
 basic_cost = pd.DataFrame({'STYLE': product_data['STYLE'], 'QUANTITY': product_data['QUANTITY'],
