@@ -64,6 +64,8 @@ customs_data = s.read_excel_file("FC11D2D0-5248-4A1A-9EE2-2225C82A6144", dtype={
 pars = s.read_excel_file("1A9D13A1-4B4B-4618-BA00-205D8A3B4572").set_index('input')
 
 RD = pars.loc['rd'][0]
+SHIPMENT_ID = pars.loc['shipment_id'][0]
+CUSTOMS_ID = pars.loc['customs_id'][0]
 if RD != product_data.loc[0, 'RD']:
     print('RD in parameters and invoice do not match')
     sys.exit()
@@ -193,4 +195,4 @@ s.write_df_to_excel(indicator, output_folder, f"indicator_{RD}.xlsx")
 proforma = product_data.iloc[:, :8]
 proforma['PRICE'] = unit_cost_mx
 proforma['SUBTOTAL'] = proforma['QUANTITY'] * proforma['PRICE']
-s.write_df_to_excel(proforma, output_folder, f"proforma_{RD}.xlsx")
+s.write_df_to_excel(proforma, output_folder, f"proforma_{RD}_{SHIPMENT_ID}_{CUSTOMS_ID}.xlsx")
