@@ -155,6 +155,8 @@ if abs(comparison) > 3 or np.isnan(comparison):
     for comp_name, comp_value in comparisons.items():
         if abs(comp_value) > 1:
             print(f"Check the {comp_name} values: {comp_value:.2f}")
+        else:
+            print("Error in total_payments_mx")
 
     sys.exit()
 
