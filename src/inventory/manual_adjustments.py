@@ -1,0 +1,16 @@
+
+from src.inventory.common import create_and_save_techsmart_txt_file, save_checklist, update_billing_record
+
+from src.inventory.varnames import ColNames as C
+
+
+
+def run_manual_adjustments(po, config, customer, delivery_date, po_path):
+    po['Caja inicial'] = 1
+    po_num = po.loc[0, C.PO_NUM]
+    techsmart = create_and_save_techsmart_txt_file(po, customer, config, po_num, po_path)
+    save_checklist(po, None, techsmart, config, po_num, po_path)
+    txn_key = po_num.split("_")[1][0]
+    update_billing_record(po, customer, delivery_date, config, txn_key)
+
+
