@@ -9,26 +9,33 @@ from datetime import date, datetime
 from openpyxl import load_workbook
 
 from src.inventory.varnames import ColNames as C
+from src.api_integrations.sharepoint_client import SharePointClient
+invoc = SharePointClient()
+
+def get_all_xlsx_files_in_directory(directory_path):
+    if not os.path.isdir(directory_path):
+        raise FileNotFoundError(f"{directory_path} is not a valid directory.")
+
+    return [
+        os.path.join(directory_path, f)
+        for f in os.listdir(directory_path)
+        if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.xlsx')
+    ]
 
 
-
-def read_files_and_backup_inventory():
-    with open("../../files/inventory/config_vars.json", "r") as f:
-        config = json.load(f)
-    inventory_df = pd.read_excel('../../files/inventory/Inventario 2025.xlsx', sheet_name='Data')
-    today_date = date.today().strftime('%Y%m%d-%H%M')
-    # inventory_df.to_csv('../../files/inventory/inventory_' + today_date + '.csv', index=False)
-    # po_paths = ['../../files/inventory/purchase_order.xlsx']
-    # po_paths = ['../../files/inventory/02-013401-20250726_806333-001-ORD_COMPRA.xlsx']
-    po_paths = ['../../files/inventory/02-013401-20250723_805804-001-ORD_COMPRA.xlsx']
-    # po_paths = ['../../files/inventory/80-013401-20250716_048343-001-ORD_COMPRA.xlsx']
-    # po_paths = ['../../files/inventory/250514_R2.xlsx']
-    po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in po_paths]
+def read_files_and_backup_inventory(log_id):
+    config = invoc.read_json("config/config.json")
+    inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx', sheet_name='Data')
+    invoc.save_csv(inventory_df, f'INVENTARIO/prev_snapshots/inventory_{log_id}.csv',)
+    po_read_path = '../../files/inventory/drag_and_drop'
+    po_files = get_all_xlsx_files_in_directory(po_read_path)
+    po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in po_files]
     po_df = pd.concat(po_dfs)
     customer, matching_column = auto_assign_customer(po_df)
     cols_rename = config[f'{customer.lower()}_rename']
     cols = cols_rename.values()
-    return po_df.rename(cols_rename, axis=1).sort_values(by=C.SKU)[cols], inventory_df, config, customer, matching_column
+    return (po_df.rename(cols_rename, axis=1).sort_values(by=C.SKU)[cols].reset_index(drop=True), inventory_df, config,
+            customer, matching_column)
 
 
 def auto_assign_customer(df):
@@ -108,7 +115,6 @@ def adjust_quantities_per_row(group):
 
 def update_inventory_in_memory(dfs):
     df = pd.concat(dfs)
-    print(df[C.INVENTORY].sum())
     # df = df.sort_values(
     #     by=['RD', 'WAREHOUSE_CODE'],
     #     key=lambda col: col.map(sort_rd) if col.name == 'code' else col,
@@ -117,7 +123,7 @@ def update_inventory_in_memory(dfs):
     df.sort_index(inplace=True)
     # df = df[df[C.INVENTORY] > 0]
     df[C.RECEIVED_DATE] = pd.to_datetime(df[C.RECEIVED_DATE]).dt.date
-    save_df_in_excel_and_keep_other_sheets(df, '../../files/inventory/inventory_u.xlsx')
+    invoc.save_excel(df, 'INVENTARIO/INVENTARIO_U.xlsx')
 
 def save_df_in_excel_and_keep_other_sheets(df, path, sheet_name="Data"):
     # Write new data, replacing the sheet but keeping others
@@ -157,7 +163,7 @@ def allocate_stock(po, inventory, column):
         delivered.append(delivered_sku)
     return np.concatenate(delivered)
 
-def create_and_save_techsmart_txt_file(po, customer, config, po_num, po_path):
+def create_and_save_techsmart_txt_file(po, customer, config, po_num, files_save_path):
     ts_rename = config["ts_rename"]
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
@@ -167,13 +173,12 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_num, po_path):
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
-    ts['Cliente final'] = customer
+    ts['Cliente final'] = customer.title()
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
     # po[(po[STORE_ID] == 688) & (po[SKU] == 1035942641)]
-    ts[ts_columns_txt].to_csv(f"../../files/inventory/{po_path}/techsmart_{str(po_num)}.txt", sep='\t',
-                              index=False)
+    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_num)}.txt", sep='\t')
     return ts[ts_columns_csv]
 
 def add_nan_cols(df, cols):
@@ -181,16 +186,13 @@ def add_nan_cols(df, cols):
         if col not in df.columns:
             df[col] = np.nan
 
-def save_checklist(po_style, po_store, techsmart, config, po_num, po_path):
+def save_checklist(po_style, po_store, techsmart, config, po_num, files_save_path):
     checklist_cols = [x for x in config['checklist_indexes'] if x not in [C.PO_NUM, C.GROUP]]
     checklist = po_style.groupby(checklist_cols)[[C.INVENTORY, C.ORDERED, C.DELIVERED]].sum().reset_index().sort_values(by=[C.SKU])
-    checklist_path = f"../../files/inventory/{po_path}/Checklist_{po_num}.xlsx"
-    sheet_names = ["CHECKLIST", "TIENDA", "OUTPUT"]
-    with pd.ExcelWriter(checklist_path, engine="openpyxl") as writer:
-        for df, sheet_name in zip([checklist, po_store, techsmart], sheet_names):
-            if isinstance(df, pd.DataFrame):
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
-    autoadjust_column_widths(checklist_path)
+    dfs = [checklist, po_store, techsmart]
+    sheet_names = ["CHECKLIST", "TIENDA", "TECHSMART"]
+    checklist_path = f"{files_save_path}/Checklist_{po_num}.xlsx"
+    invoc.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
 
 def autoadjust_column_widths(file_path):
     wb = load_workbook(file_path)
@@ -205,7 +207,7 @@ def autoadjust_column_widths(file_path):
 
 def update_billing_record(po_style, customer, delivery_date, config, txn_key=None):
     br_columns = config["br_columns"]
-    br = pd.read_excel('../../files/inventory/Facturación 2025.xlsx', sheet_name="Data")
+    br = invoc.read_excel('FACTURACION/FACTURACION.xlsx', sheet_name="Data")
     po_br = po_style.copy()
     po_br[C.DELIVERY_DATE] = datetime.strptime(delivery_date, "%m/%d/%Y")
     po_br[C.SHIPPED] = 'TULTITLAN'
@@ -221,10 +223,10 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key=Non
     bru = pd.concat([br, po_br], ignore_index=True)[br_columns]
     for col in [C.COLLECTED, C.DELIVERY_DATE, C.INVOICE_DATE]:
         bru[col] = pd.to_datetime(bru[col]).dt.date
-    # save_df_in_excel_and_keep_other_sheets(bru, '../../files/inventory/Facturación 2025_u.xlsx')
+    invoc.save_excel(bru, 'FACTURACION/FACTURACION_u.xlsx')
 
 
 def create_po_path_for_savings(customer, delivery_date, po_num):
-    po_path = f"{customer}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{str(po_num)}"
-    os.makedirs("../../files/inventory/" + po_path, exist_ok=True)
-    return po_path
+    folder_path = f"{customer}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{str(po_num)}"
+    invoc.create_folder_path("OC", folder_path)
+    return "OC/" + folder_path

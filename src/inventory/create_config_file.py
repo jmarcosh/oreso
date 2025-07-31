@@ -1,7 +1,8 @@
 import json
 
 from src.inventory.varnames import ColNames as C
-
+from src.api_integrations.sharepoint_client import SharePointClient
+invoc = SharePointClient()
 
 data = {
     "liverpool_rename": {
@@ -73,7 +74,7 @@ data = {
 
     "asn_rename": {
         C.PO_NUM: 'PEDIDO',
-        C.STORE_ID: 'CENTRO',
+        C.STORE_ID: 'CENTRO/ALMACEN DESTINO',
         C.BOX_ID: 'HU DEL CONTENEDOR',
         C.DELIVERED: 'PIEZAS CITADAS POR HU',
         'LENGTH': 'LARGO (CM)',
@@ -127,6 +128,6 @@ data = {
     ]
 }
 
-
-with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:
-    json.dump(data, f, indent=2)
+invoc.save_json(data, "config/config.json")
+# with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:
+#     json.dump(data, f, indent=2)

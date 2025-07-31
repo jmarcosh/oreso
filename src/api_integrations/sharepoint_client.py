@@ -1,0 +1,257 @@
+import msal
+import requests
+import pandas as pd
+import io
+import toml
+from openpyxl.utils import get_column_letter
+from openpyxl import load_workbook, Workbook
+
+
+class SharePointClient:
+    def __init__(self, config_path="../config_files/secrets.toml"):
+        self._load_config(config_path)
+        self._authenticate()
+        self._get_site_and_drive_ids()
+
+    def _load_config(self, path):
+        config = toml.load(path).get("azure")
+        self.tenant_id = config["tenant_id"]
+        self.client_id = config["client_id"]
+        self.client_secret = config["client_secret"]
+        self.site_domain = config["site_domain"]
+        self.site_name = config["site_name"]
+
+    def _authenticate(self):
+        authority = f"https://login.microsoftonline.com/{self.tenant_id}"
+        app = msal.ConfidentialClientApplication(
+            self.client_id, authority=authority,
+            client_credential=self.client_secret
+        )
+        scopes = ["https://graph.microsoft.com/.default"]
+        result = app.acquire_token_for_client(scopes=scopes)
+        self.access_token = result['access_token']
+        self.headers = {"Authorization": f"Bearer {self.access_token}"}
+
+    def _get_site_and_drive_ids(self):
+        site_url = f"https://graph.microsoft.com/v1.0/sites/{self.site_domain}:/sites/{self.site_name}"
+        site_resp = requests.get(site_url, headers=self.headers)
+        self.site_id = site_resp.json()["id"]
+
+        drive_url = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drive"
+        drive_resp = requests.get(drive_url, headers=self.headers)
+        self.drive_id = drive_resp.json()["id"]
+
+    def read_excel(self, file_path: str, sheet_name: str = 0) -> pd.DataFrame:
+        file_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.get(file_url, headers=self.headers)
+        response.raise_for_status()  # Raise an error for bad responses
+        df = pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name, engine="openpyxl")
+        return df
+
+    def save_excel(self, df: pd.DataFrame, file_path: str, sheet_name: str = "Sheet1", header: bool = True):
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False, header=header, sheet_name=sheet_name, engine="openpyxl")
+        buffer.seek(0)
+
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.put(upload_url, headers=self.headers, data=buffer.read())
+        return response.status_code in [200, 201]
+
+
+    def read_csv(self, file_path: str, sep: str = ',', encoding: str = 'utf-8') -> pd.DataFrame:
+        """
+        Reads a CSV file from SharePoint into a pandas DataFrame.
+
+        :param file_path: Path to the CSV file in SharePoint (e.g., 'Logs/log_summary.csv').
+        :param sep: Field delimiter (default ','; use '\t' for tab-delimited files).
+        :param encoding: File encoding (default 'utf-8').
+        :return: pandas DataFrame.
+        """
+        file_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.get(file_url, headers=self.headers)
+        response.raise_for_status()  # Raise exception for HTTP errors
+
+        buffer = io.StringIO(response.content.decode(encoding))
+        df = pd.read_csv(buffer, sep=sep)
+        return df
+
+    def save_csv(self, df: pd.DataFrame, file_path: str, sep: str = ','):
+        """
+        Saves a DataFrame as a CSV file to SharePoint.
+
+        :param df: pandas DataFrame to save.
+        :param file_path: Path in SharePoint to save the CSV file.
+        :param sep: Field delimiter (default ','; use '\t' for tab-delimited .txt).
+        :return: True if upload succeeded, False otherwise.
+        """
+        buffer = io.StringIO()
+        df.to_csv(buffer, index=False, sep=sep)
+        buffer.seek(0)
+        content_type = "text/plain" if file_path.endswith(".txt") else "text/csv"
+
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.put(
+            upload_url,
+            headers={**self.headers, "Content-Type": content_type},
+            data=buffer.getvalue()
+        )
+        return response.status_code in [200, 201]
+
+    def read_json(self, file_path: str) -> dict:
+        """
+        Reads a JSON file from SharePoint and returns it as a Python dictionary.
+
+        :param file_path: Path to the JSON file in SharePoint.
+        :return: Parsed JSON content as a Python dict.
+        """
+        file_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.get(file_url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+
+    def save_json(self, data: dict, file_path: str):
+        """
+        Saves a Python dictionary as a JSON file to SharePoint.
+
+        :param data: Python dictionary to save.
+        :param file_path: Path in SharePoint to save the JSON file.
+        :return: True if upload succeeded, False otherwise.
+        """
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.put(
+            upload_url,
+            headers={**self.headers, "Content-Type": "application/json"},
+            data=pd.io.json.dumps(data)
+        )
+        return response.status_code in [200, 201]
+
+    def save_multiple_dfs_to_excel(self, dfs: list, sheet_names: list, file_path: str,
+                                   auto_adjust_columns: bool = False):
+        """
+        Saves multiple DataFrames to different sheets in a single Excel file on SharePoint, with optional column width adjustment.
+
+        :param dfs: List of pandas DataFrames.
+        :param sheet_names: List of sheet names.
+        :param file_path: Path in SharePoint to save the Excel file.
+        :param auto_adjust_columns: Whether to auto-adjust column widths for readability.
+        :return: True if upload succeeded, False otherwise.
+        """
+        if len(dfs) != len(sheet_names):
+            raise ValueError("Number of DataFrames and sheet names must be equal.")
+
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            for df, sheet_name in zip(dfs, sheet_names):
+                if isinstance(df, pd.DataFrame):
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            writer.book.save(buffer)  # Save the writer content to buffer
+
+        if auto_adjust_columns:
+            buffer.seek(0)
+            wb = load_workbook(buffer)
+            self.autoadjust_column_widths(wb)
+            buffer = io.BytesIO()
+            wb.save(buffer)
+
+            # Save adjusted workbook to a new buffer
+            buffer = io.BytesIO()
+            wb.save(buffer)
+
+        buffer.seek(0)
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.put(upload_url, headers=self.headers, data=buffer.read())
+        return response.status_code in [200, 201]
+
+
+
+    @staticmethod
+    def autoadjust_column_widths(workbook: Workbook):
+        """
+        Auto-adjusts column widths for all sheets in the given openpyxl Workbook.
+
+        :param workbook: openpyxl Workbook object.
+        """
+        for ws in workbook.worksheets:
+            for col_idx, column_cells in enumerate(ws.columns, start=1):
+                max_length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+                adjusted_width = max_length + 2  # Add padding
+                col_letter = get_column_letter(col_idx)
+                ws.column_dimensions[col_letter].width = adjusted_width
+
+    def create_folder_path(self, folder_path: str):
+        """
+        Creates a folder path recursively in SharePoint.
+        :param folder_path: Folder path relative to SharePoint root (e.g., 'OC/Customer/2025/07/1234')
+        :return: True if created successfully or already exists.
+        """
+        parts_lst = folder_path.strip("/").split("/")
+        parent_path = parts_lst[0]
+        parts = parts_lst[1:]
+
+        for part in parts:
+            current_path = f"{parent_path}/{part}" if parent_path else part
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{current_path}"
+            # Check if folder exists
+            check_resp = requests.get(url, headers=self.headers)
+            if check_resp.status_code == 404:
+                # Folder doesn't exist, create it
+                create_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{parent_path}:/children" if parent_path else f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
+                body = {
+                    "name": part,
+                    "folder": {},
+                    "@microsoft.graph.conflictBehavior": "replace"
+                }
+                create_resp = requests.post(create_url, headers={**self.headers, "Content-Type": "application/json"},
+                                            json=body)
+                if create_resp.status_code not in [200, 201]:
+                    raise Exception(f"Failed to create folder '{current_path}': {create_resp.text}")
+            elif check_resp.status_code not in [200, 201]:
+                raise Exception(f"Failed to check folder '{current_path}': {check_resp.text}")
+            parent_path = current_path  # Move to next subfolder
+        return True
+
+    @staticmethod
+    def _format_delivery_note(wb: Workbook):
+        ws = wb['Sheet1']
+        col_widths = [22, 20, 50, 15, 15, 15, 20]
+        for col_letter, width in zip(list('ABCDEFG'), col_widths):
+            ws.column_dimensions[col_letter].width = width
+
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+        ws.page_setup.paperSize = ws.PAPERSIZE_A4
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.page_margins.left = 0.5
+        ws.page_margins.right = 0.5
+        ws.page_margins.top = 0.5
+        ws.page_margins.bottom = 0.5
+
+        for row in range(14, ws.max_row + 1):
+            cell = ws[f"G{row}"]
+            cell.number_format = '#,##0.00'
+
+    def save_delivery_note_excel(self, df: pd.DataFrame, file_path: str, sheet_name: str = "Sheet1"):
+        """
+        Saves a delivery note Excel file with special formatting.
+        """
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False, header=False, sheet_name=sheet_name, engine="openpyxl")
+        buffer.seek(0)
+
+        wb = load_workbook(buffer)
+        self._format_delivery_note(wb)
+
+        final_buffer = io.BytesIO()
+        wb.save(final_buffer)
+        final_buffer.seek(0)
+
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
+        response = requests.put(upload_url, headers=self.headers, data=final_buffer.read())
+        return response.status_code in [200, 201]
+
+
+# # Usage
+# client = SharePointClient()
+# inv = client.read_excel("INVENTARIO/INVENTARIO.xlsx", sheet_name='Data')
+# # Modify df...
+# client.save_excel(inv, "INVENTARIO/INVENTARIO_updated.xlsx")
