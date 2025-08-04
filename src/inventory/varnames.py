@@ -51,3 +51,6 @@ class ColNames:
     MISSING = 'Missing'
     DELIVERED_CS = 'delivered_cs'
     BOX_ID = 'CONTENEDOR'
+    LOG_ID = 'LOG_ID'
+    FACTORY = 'FABRICA'
+    PCS_PACK = 'PZAS_PACK'

@@ -1,3 +1,5 @@
+import os
+
 import msal
 import requests
 import pandas as pd
@@ -14,7 +16,9 @@ class SharePointClient:
         self._get_site_and_drive_ids()
 
     def _load_config(self, path):
-        config = toml.load(path).get("azure")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        abs_path = os.path.join(base_dir, path)
+        config = toml.load(abs_path).get("azure")
         self.tenant_id = config["tenant_id"]
         self.client_id = config["client_id"]
         self.client_secret = config["client_secret"]

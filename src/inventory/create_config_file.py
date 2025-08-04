@@ -2,8 +2,6 @@ import json
 
 from src.inventory.varnames import ColNames as C
 from src.api_integrations.sharepoint_client import SharePointClient
-invoc = SharePointClient()
-
 data = {
     "liverpool_rename": {
         'Orden Compra': C.PO_NUM,
@@ -37,6 +35,9 @@ data = {
         C.PO_NUM: C.PO_NUM,
         C.WAREHOUSE_CODE: C.WAREHOUSE_CODE,
         'CANTIDAD': C.ORDERED,
+        C.SKU: C.SKU,
+        C.UPC: C.UPC,
+        C.STYLE: C.STYLE,
     },
 
     "br_columns": [
@@ -44,7 +45,7 @@ data = {
         C.CUSTOMER, C.PO_NUM, C.INVOICE_NUM, C.SHIPPED, C.WAREHOUSE_CODE,
         C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.ORDERED, C.DELIVERED,
         C.INVOICED, C.WHOLESALE_PRICE, C.SUBTOTAL, C.DISCOUNT,
-        C.SUBTOTAL_NET, C.VAT, C.GROUP
+        C.SUBTOTAL_NET, C.VAT, C.LOG_ID
     ],
 
     "ts_rename": {
@@ -96,7 +97,7 @@ data = {
 
     "checklist_indexes": [
         C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
-        C.UPC, C.SKU, C.BRAND, C.GROUP
+        C.UPC, C.SKU, C.BRAND
     ],
 
     "checklist_values": {
@@ -110,7 +111,7 @@ data = {
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 2000),
+        ("NOTA DE REMISION", 3000),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),
@@ -125,8 +126,29 @@ data = {
 
     "dn_columns": [
         C.DELIVERED, C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.CUSTOMER_COST
-    ]
+    ],
+
+    "receipt_rename": {
+        C.RD: C.RD,
+        C.MOVEX_PO: C.MOVEX_PO,  # No clear match
+        "STYLE": C.STYLE,
+        "DESCRIPTION": C.DESCRIPTION,
+        C.UPC: C.UPC,  # Same
+        C.SKU: C.SKU,
+        "TYPE": C.BRAND,
+        "BUS_KEY": C.BUS_KEY,
+        "FACTORY": C.FACTORY,
+        "PCS_PER_PACK": C.PCS_PACK,
+        "COST": C.COST,
+        "WHOLESALE_PRICE": C.WHOLESALE_PRICE,
+        "RETAIL_PRICE": C.RETAIL_PRICE,
+        "PCS_BOX": C.PCS_BOX,
+        "QUANTITY": C.RECEIVED,
+
+    }
 }
+invoc = SharePointClient()
+
 
 invoc.save_json(data, "config/config.json")
 # with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:

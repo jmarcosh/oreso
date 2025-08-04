@@ -1,13 +1,11 @@
-import json
 import warnings
 from itertools import product
 
 import numpy as np
 import pandas as pd
-from openpyxl import load_workbook
 
-from src.inventory.common import (create_and_save_techsmart_txt_file, save_checklist, update_billing_record,
-                                  add_nan_cols)
+from src.inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
+                                         add_nan_cols)
 from src.inventory.varnames import ColNames as C
 from src.api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
@@ -100,7 +98,7 @@ def create_po_summary_by_store(po, config):
     po_gb = po.groupby(config['store_indexes'])[C.DELIVERED].sum().reset_index()
     return po_gb
 
-def update_records_and_save_po_files(po, customer, delivery_date, config, files_save_path):
+def upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path):
     po_num = po.loc[0, C.PO_NUM]
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
@@ -109,7 +107,7 @@ def update_records_and_save_po_files(po, customer, delivery_date, config, files_
     save_checklist(po_style, po_store, techsmart, config, po_num, files_save_path)
     create_and_save_delivery_note(po_style, delivery_date, config, po_num, section, files_save_path)
     create_and_save_asn_file(po, config, po_num, files_save_path)
-    update_billing_record(po_style, customer, delivery_date, config, "V")
+    return po_style
 
 
 
@@ -159,8 +157,9 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
     if len(styles_pc) > 0:
         warnings.warn(f"""The following styles have price conflicts: {", ".join(styles_pc)}""", UserWarning)
     po = assign_box_number(po, rfid_series, config["cartons"])
-    update_records_and_save_po_files(po, customer, delivery_date, config, files_save_path)
+    po_entry = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
     invoc.save_json(config, "config/config.json")
+    return po_entry
 
 
 # new_inventory = update_inventory_in_memory(new_inventory_dfs)
@@ -168,5 +167,3 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
     # inventory = inventory[inventory[SKU] == 1145889908]
     # po = po[po[SKU] == 1035942579]
     # po = po[po[C.SKU] == 1035942641] # split
-
-    x=1
