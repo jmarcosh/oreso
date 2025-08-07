@@ -6,20 +6,32 @@ import requests
 import pandas as pd
 import io
 import toml
+import streamlit as st
 from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook, Workbook
 
 
 class SharePointClient:
     def __init__(self, config_path="../config_files/secrets.toml"):
+
         self._load_config(config_path)
         self._authenticate()
         self._get_site_and_drive_ids()
 
+    @staticmethod
+    def _is_local():
+        # Example heuristic: check environment variable or file existence
+        import os
+        return os.path.exists("../config_files/secrets.toml")
+
     def _load_config(self, path):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        abs_path = os.path.join(base_dir, path)
-        config = toml.load(abs_path).get("azure")
+        if self._is_local():
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            abs_path = os.path.join(base_dir, path)
+            config = toml.load(abs_path).get("azure", {})
+        else:
+            config = st.secrets.get("azure", {})
+
         self.tenant_id = config["tenant_id"]
         self.client_id = config["client_id"]
         self.client_secret = config["client_secret"]
