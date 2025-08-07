@@ -1,12 +1,14 @@
 from datetime import datetime
 
+import pandas as pd
 
-from src.inventory.common import record_log
+from src.inventory.common_app import record_log, stop_if_locked_files
 from src.inventory.varnames import ColNames as C
 from src.api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 def undo_update(recovery_id=None):
+    stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
     logs = invoc.read_csv("logs/logs.csv")
     record_log(logs, log_id, 'undo', 'undo update')
@@ -21,6 +23,7 @@ def undo_update(recovery_id=None):
 def undo_records(recovery_id):
     records = invoc.read_excel("FACTURACION/FACTURACION.xlsx")
     records = records.loc[(records[C.LOG_ID] != recovery_id)]
+    records[C.DELIVERY_DATE] = pd.to_datetime(records[C.DELIVERY_DATE]).dt.date
     invoc.save_excel(records, "FACTURACION/FACTURACION.xlsx")
 
 

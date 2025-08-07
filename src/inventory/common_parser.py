@@ -21,11 +21,11 @@ def get_all_xlsx_files_in_directory(directory_path):
         if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.xlsx')
     ]
 
-def read_files(temp_paths, update_inv_values):
+def read_files(temp_paths, update_from_sharepoint):
     config = invoc.read_json("config/config.json")
     inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
-    if update_inv_values:
-        po_df = invoc.read_excel(f'RECIBOS/{update_inv_values}.xlsx')
+    if update_from_sharepoint:
+        po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
     else:
         # po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in temp_paths]
         po_read_path = '../../files/inventory/drag_and_drop'
@@ -34,17 +34,15 @@ def read_files(temp_paths, update_inv_values):
         po_df = pd.concat(po_dfs)
     po_type = auto_assign_po_type(po_df)
     cols_rename = config[f'{po_type.lower()}_rename']
+    po_df = po_df.rename(columns=cols_rename)
     if po_type != 'receipt':
         matching_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
         matching_column = auto_assign_matching_column(po_df, matching_cols)
         cols = [matching_column] + [x for x in cols_rename.values() if x not in matching_cols]
     else:
         matching_column = 'index'
-        cols = cols_rename.values()
-        if update_inv_values:
-            cols.append(C.WAREHOUSE_CODE)
+        cols = list(cols_rename.values())
     return ((po_df.reset_index()
-             .rename(cols_rename, axis=1)
              .sort_values(by=matching_column)[cols]
              .reset_index(drop=True)),
             inventory_df, config, po_type, matching_column)
@@ -75,15 +73,25 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     updated_inv = [split_inventory[0]]
     for inventory_wh in split_inventory[1:]:
         it += 1
-        po = split_deliveries_by_column(po, inventory_wh, column, po_original_cols, po_wh, updated_inv)
+        po, to_deliver = assign_warehouse_codes(po, inventory_wh, column)
+        po_wh.append(po.loc[po[C.DELIVERED] > 0].copy())
+        update_inventory(inventory_wh, po, updated_inv)
+        po[C.DELIVERED] = to_deliver
+        po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
         if len(po) == 0:
             break
     po = pd.concat(po_wh)
     po = split_ordered_quantity_by_warehouse_codes(po, column)
     updated_inv_lst = updated_inv + split_inventory[it+1:]
     updated_inv = concat_inv_lst(updated_inv_lst)
+    for df in [po, updated_inv]:
+        convert_cols_to_int(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU])
     return po.sort_values([C.STORE_ID, column]).reset_index(drop=True), updated_inv
 
+def convert_cols_to_int(df, cols):
+    for col in cols:
+        if col in df.columns:
+            df[col] = df[col].astype(int)
 
 def concat_inv_lst(dfs):
     df = pd.concat(dfs)
@@ -96,7 +104,7 @@ def concat_inv_lst(dfs):
     return df
 
 
-def split_deliveries_by_column(po, inventory_wh, column, po_original_cols, po_wh, updated_inv):
+def assign_warehouse_codes(po, inventory_wh, column):
     po = po.merge(
         inventory_wh,
         on=[column], how='left')
@@ -105,11 +113,7 @@ def split_deliveries_by_column(po, inventory_wh, column, po_original_cols, po_wh
     delivered_i = (po[C.DELIVERED] + missing).clip(lower=0)
     to_deliver = po[C.DELIVERED] - delivered_i
     po[C.DELIVERED] = delivered_i
-    po_wh.append(po.loc[po[C.DELIVERED] > 0].copy())
-    update_inventory(inventory_wh, po, updated_inv)
-    po[C.DELIVERED] = to_deliver
-    po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
-    return po
+    return po, to_deliver
 
 
 def split_df_by_column(df, column):
@@ -132,9 +136,24 @@ def split_ordered_quantity_by_warehouse_codes(po, column):
     # po = po[po["Tienda"] == 27]
     if C.STORE_ID not in po.columns:
         po[C.STORE_ID] = 0
-    po[C.MISSING] = po[C.ORDERED] - po.groupby([C.STORE_ID, column])[C.DELIVERED].transform("sum")
-    po = po.groupby([C.STORE_ID, column], group_keys=False).apply(adjust_quantities_per_row)
-    return po.drop(columns=[C.MISSING])
+    group_cols = [C.STORE_ID, column]
+    po[C.MISSING] = po[C.ORDERED] - po.groupby(group_cols)[C.DELIVERED].transform("sum")
+
+    group_indices = po.groupby(group_cols).cumcount()
+    group_sizes = po.groupby(group_cols).transform('size')
+
+    # Identify the last row in each group by comparing group index to size - 1
+    po['_is_last'] = group_indices == (group_sizes - 1)
+
+    # Adjust ORDERED based on position
+    po.loc[~po['_is_last'], C.ORDERED] = po.loc[~po['_is_last'], C.DELIVERED]
+    po.loc[po['_is_last'], C.ORDERED] = (
+        po.loc[po['_is_last'], C.DELIVERED] + po.loc[po['_is_last'], C.MISSING]
+    )
+
+    # Clean up
+    po = po.drop(columns=[C.MISSING, '_is_last'])
+    return po
 
 def adjust_quantities_per_row(group):
     group = group.copy()
@@ -143,10 +162,11 @@ def adjust_quantities_per_row(group):
         group.iloc[-1, group.columns.get_loc(C.ORDERED)] = group[C.DELIVERED].iloc[-1] + group[C.MISSING].iloc[-1]
     return group
 
-def update_inventory_in_memory(df, inventory, log_id):
-    # df = df[df[C.INVENTORY] > 0]
-    df[C.RECEIVED_DATE] = pd.to_datetime(df[C.RECEIVED_DATE]).dt.date
-    invoc.save_excel(df, 'INVENTARIO/INVENTARIO.xlsx')
+def update_inventory_in_memory(updated_inv, inventory, log_id):
+    updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
+    # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
+    #     updated_inv[col] = updated_inv[col].astype(int)
+    invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
     invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv',)
 
 
@@ -212,8 +232,8 @@ def add_nan_cols(df, cols):
             df[col] = np.nan
 
 def save_checklist(po_style, po_store, techsmart, config, po_num, files_save_path):
-    checklist_cols = [x for x in config['checklist_indexes'] if x not in [C.PO_NUM, C.GROUP]]
-    checklist = po_style.groupby(checklist_cols)[[C.INVENTORY, C.ORDERED, C.DELIVERED]].sum().reset_index().sort_values(by=[C.SKU])
+    cols = config['checklist_columns']
+    checklist = po_style[cols]
     dfs = [checklist, po_store, techsmart]
     sheet_names = ["CHECKLIST", "TIENDA", "TECHSMART"]
     checklist_path = f"{files_save_path}/Checklist_{po_num}.xlsx"
@@ -235,10 +255,9 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key, lo
     br = invoc.read_excel('FACTURACION/FACTURACION.xlsx')
     po_br = po_style.copy()
     po_br[C.DELIVERY_DATE] = datetime.strptime(delivery_date, "%m/%d/%Y")
-    po_br[C.SHIPPED] = 'TULTITLAN'
     po_br[C.KEY] = txn_key[0] if txn_key else np.nan
     po_br[C.CUSTOMER] = customer.upper()
-    po_br[C.INVOICE_NUM] = txn_key if txn_key else np.nan
+    po_br[C.INVOICED] = po_br[C.ORDERED]
     po_br[C.SUBTOTAL] = 0 if txn_key else po_br[C.ORDERED] * po_br[C.WHOLESALE_PRICE]
     po_br[C.DISCOUNT] = 0
     if customer.lower() == 'liverpool':
@@ -247,8 +266,7 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key, lo
     po_br[C.VAT] = po_br[C.SUBTOTAL_NET] * 1.16
     po_br[C.LOG_ID] = log_id
     bru = pd.concat([br, po_br], ignore_index=True)[br_columns]
-    for col in [C.COLLECTED, C.DELIVERY_DATE, C.INVOICE_DATE]:
-        bru[col] = pd.to_datetime(bru[col]).dt.date
+    bru[C.DELIVERY_DATE] = pd.to_datetime(bru[C.DELIVERY_DATE]).dt.date
     invoc.save_excel(bru, 'FACTURACION/FACTURACION.xlsx')
 
 

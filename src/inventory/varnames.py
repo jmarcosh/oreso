@@ -54,3 +54,4 @@ class ColNames:
     LOG_ID = 'LOG_ID'
     FACTORY = 'FABRICA'
     PCS_PACK = 'PZAS_PACK'
+    PRODUCT = 'PRODUCTO'

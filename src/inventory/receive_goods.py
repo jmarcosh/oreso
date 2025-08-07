@@ -10,17 +10,17 @@ invoc = SharePointClient()
 
 
 
-def receive_goods(po, inventory, delivery_date, update_inv_values, log_id):
+def receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id):
     po[C.LOG_ID] = log_id
-    if update_inv_values:
+    if update_from_sharepoint:
         inventory["_row_order"] = range(len(inventory))
         original_column_order = inventory.columns.copy()
-        inventory.set_index([C.RD, C.WAREHOUSE_CODE], inplace=True)
-        po.set_index([C.RD, C.WAREHOUSE_CODE], inplace=True)
-        for col in [C.LOG_ID, C.SKU, C.COST]:
+        inventory.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
+        po.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
+        for col in [C.LOG_ID, C.SKU, C.COST, C.WHOLESALE_PRICE, C.RETAIL_PRICE]:
             inventory.loc[po.index, col] = po[col]
         updated_inv = reset_rows_and_columns_order(inventory, original_column_order)
-        files_save_path = update_inv_values
+        files_save_path = update_from_sharepoint
     else:
         po = po.loc[~po[C.RD].isna()].reset_index(drop=True)
         po[C.WAREHOUSE_CODE] = (po[C.MOVEX_PO]
@@ -35,7 +35,7 @@ def receive_goods(po, inventory, delivery_date, update_inv_values, log_id):
         season = po.loc[0, C.RD][:3]
         files_save_path = f"RECIBOS/{season}.xlsx"
         update_master_entry_file(files_save_path, po)
-    po[C.DELIVERED] = - po[C.RECEIVED]
+    # po[C.DELIVERED] = - po[C.RECEIVED]
     txn_key = 'C'
     return po, updated_inv, files_save_path, txn_key
 

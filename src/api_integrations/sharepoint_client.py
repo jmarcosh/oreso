@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 import msal
 import requests
@@ -59,6 +60,8 @@ class SharePointClient:
 
         upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
         response = requests.put(upload_url, headers=self.headers, data=buffer.read())
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to update file: {file_path}")
         return response.status_code in [200, 201]
 
 
@@ -99,6 +102,8 @@ class SharePointClient:
             headers={**self.headers, "Content-Type": content_type},
             data=buffer.getvalue()
         )
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to update file: {file_path}")
         return response.status_code in [200, 201]
 
     def read_json(self, file_path: str) -> dict:
@@ -252,6 +257,52 @@ class SharePointClient:
         upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
         response = requests.put(upload_url, headers=self.headers, data=final_buffer.read())
         return response.status_code in [200, 201]
+
+    def is_excel_file_locked(self, file_path: str) -> Union[bool, None]:
+        """
+        Check if the Excel file at file_path is currently locked (has an active workbook session).
+        Returns:
+            True if locked,
+            False if not locked,
+            None if not an Excel file or unknown error.
+        """
+        url = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drive/root:/{file_path}:/workbook/createSession"
+        headers = self.headers.copy()
+        headers["Content-Type"] = "application/json"
+        body = {"persistChanges": False}
+
+        response = requests.post(url, headers=headers, json=body)
+
+        if response.status_code == 201:
+            # Success: workbook not locked; close session to avoid leaving it open
+            session_id = response.json().get("id")
+            close_url = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drive/root:/{file_path}:/workbook/closeSession"
+            close_headers = headers.copy()
+            close_headers["workbook-session-id"] = session_id
+            requests.post(close_url, headers=close_headers)
+            return False
+
+        elif response.status_code == 409:
+            # 409 Conflict: workbook is currently locked (session already exists)
+            return True
+
+        elif response.status_code == 415:
+            # 415 Unsupported Media Type: likely not an Excel file
+            return None
+
+        else:
+            # Other unexpected error
+            print(f"Error checking lock: {response.status_code} - {response.text}")
+            return None
+
+    @staticmethod
+    def format_columns_no_scientific_notation(ws, columns):
+        for col_idx in columns:
+            col_letter = get_column_letter(col_idx)
+            for cell in ws[col_letter]:
+                if cell.row == 1:
+                    continue  # Skip header
+                cell.number_format = '0'  # Integer format (no decimals, no scientific)
 
 
 # # Usage

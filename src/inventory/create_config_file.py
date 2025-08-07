@@ -1,4 +1,3 @@
-import json
 
 from src.inventory.varnames import ColNames as C
 from src.api_integrations.sharepoint_client import SharePointClient
@@ -6,6 +5,7 @@ data = {
     "liverpool_rename": {
         'Orden Compra': C.PO_NUM,
         'Tip Eti': C.LABEL_TYPE,
+        'Tda Entrega': C.SHIPPED,
         'Sku': C.SKU,
         'Ean/Upc': C.CUSTOMER_UPC,
         'Modelo': C.CUSTOMER_STYLE,
@@ -13,7 +13,7 @@ data = {
         'Costo': C.CUSTOMER_COST,
         'Precio Normal': C.CUSTOMER_PRICE,
         'Tienda': C.STORE_ID,
-        'Nombre tienda': C.STORE_NAME,
+        'Nombre Tienda': C.STORE_NAME,
         'Cantidad': C.ORDERED
     },
 
@@ -24,10 +24,11 @@ data = {
         'Ean/Upc': C.CUSTOMER_UPC,
         'Modelo': C.CUSTOMER_STYLE,
         'Num. Depto': C.SECTION,
+        'Tda Entraga': C.SHIPPED,
         'Costo Uni': C.CUSTOMER_COST,
         'Precio Regular': C.CUSTOMER_PRICE,
         'Tda Distr.': C.STORE_ID,
-        'Nombre tienda': C.STORE_NAME,
+        'Nombre Tienda': C.STORE_NAME,
         'Cantidad': C.ORDERED
     },
 
@@ -39,14 +40,6 @@ data = {
         C.UPC: C.UPC,
         C.STYLE: C.STYLE,
     },
-
-    "br_columns": [
-        C.COLLECTED, C.DELIVERY_DATE, C.INVOICE_DATE, C.KEY, C.BUS_KEY,
-        C.CUSTOMER, C.PO_NUM, C.INVOICE_NUM, C.SHIPPED, C.WAREHOUSE_CODE,
-        C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.ORDERED, C.DELIVERED,
-        C.INVOICED, C.WHOLESALE_PRICE, C.SUBTOTAL, C.DISCOUNT,
-        C.SUBTOTAL_NET, C.VAT, C.LOG_ID
-    ],
 
     "ts_rename": {
         C.PO_NUM: '# OC',
@@ -95,23 +88,39 @@ data = {
         {"name": "RM-31", "capacity": 7920, "cost": 11.5, "dimensions": (30, 21, 14)},
     ],
 
-    "checklist_indexes": [
+    "rfid_series": {"liverpool": {"prefix": "C", "digits": 8},
+                    "suburbia": {"prefix": "SB", "digits": 7},},
+
+
+    "po_style_indexes": [
         C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
-        C.UPC, C.SKU, C.BRAND
+        C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.COST,
     ],
 
-    "checklist_values": {
+    "po_style_values": {
         C.INVENTORY: 'mean',
         C.ORDERED: 'sum',
         C.DELIVERED: 'sum',
         C.WHOLESALE_PRICE: 'mean',
         C.CUSTOMER_COST: 'mean',
+        C.RETAIL_PRICE: 'mean',
     },
+
+    "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.SHIPPED, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
+        C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
+
+    "br_columns": [
+        C.DELIVERY_DATE, C.KEY, C.CUSTOMER,
+        C.PO_NUM, C.SHIPPED, C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE,
+        C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.COST,
+        C.ORDERED, C.DELIVERED, C.INVOICED, C.WHOLESALE_PRICE, C.SUBTOTAL, C.DISCOUNT,
+        C.SUBTOTAL_NET, C.VAT, C.LOG_ID
+    ],
 
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 3000),
+        ("NOTA DE REMISION", 3010),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),

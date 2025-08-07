@@ -29,7 +29,11 @@ def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
                 best_combo = tuple(capacities[i] for i in range(len(combo)) for _ in range(combo[i]))
     return best_combo
 
-def assign_box_number(po, rfid_series, cartons):
+def assign_box_number(po, rfid_series, customer, config):
+    cartons = config['cartons']
+    config_rfid_series = config['rfid_series'].get(customer)
+    rfid_prefix = config_rfid_series.get("prefix")
+    rfid_digits = config_rfid_series.get("digits")
     names, capacities, costs, dimensions = get_cartons_info(cartons)
     po = assign_box_combos_per_store(po, capacities, costs)
 
@@ -42,7 +46,7 @@ def assign_box_number(po, rfid_series, cartons):
     store_prev = stores[0]
     rs = 0
     c = 0
-    box, end_box = [int(i[1:]) for i in rfid_series[rs]]
+    box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
 
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
@@ -59,7 +63,7 @@ def assign_box_number(po, rfid_series, cartons):
             box, end_box = [int(i[1:]) for i in rfid_series[rs]]
         box_assignment.append(box) if (len(combo_s) > 0) else box_assignment.append(None)
 
-    po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
+    po = add_box_related_columns(po, box_assignment, names, capacities, dimensions, rfid_prefix, rfid_digits)
     return po
 
 
@@ -71,8 +75,8 @@ def get_cartons_info(cartons):
     return names, capacities, costs, dimensions
 
 
-def add_box_related_columns(po, box_assignment, names, capacities, dimensions):
-    po[C.BOX_ID] = ["C" + str(i) if isinstance(i, int) else np.nan for i in box_assignment]
+def add_box_related_columns(po, box_assignment, names, capacities, dimensions, rfid_prefix, rfid_digits):
+    po[C.BOX_ID] = [rfid_prefix + str(i).zfill(rfid_digits) if isinstance(i, int) else np.nan for i in box_assignment]
     po['BOX_CHANGE'] = (po[C.BOX_ID] != po[C.BOX_ID].shift()).astype(int)
     po['BOX_STORE_NUM'] = po.groupby([C.STORE_ID])['BOX_CHANGE'].cumsum()
     po['BOX_VOLUME'] = po.groupby(C.BOX_ID)['ROW_VOLUME'].transform('sum')
@@ -99,7 +103,7 @@ def create_po_summary_by_store(po, config):
     return po_gb
 
 def upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path):
-    po_num = po.loc[0, C.PO_NUM]
+    po_num = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
@@ -148,18 +152,20 @@ def create_and_save_asn_file(po, config, po_num, files_save_path):
     invoc.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_num}.xlsx")
 
 def create_po_summary_by_style(po, config):
-    po_gb = po.groupby(config['checklist_indexes']).agg(config['checklist_values']).reset_index()
+    po_gb = po.groupby(config['po_style_indexes']).agg(config['po_style_values']).reset_index()
     return po_gb
 
 def run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, rfid_series=None):
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
-    styles_pc = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]), C.CUSTOMER_STYLE].unique() #pc = price_conflict
-    if len(styles_pc) > 0:
-        warnings.warn(f"""The following styles have price conflicts: {", ".join(styles_pc)}""", UserWarning)
-    po = assign_box_number(po, rfid_series, config["cartons"])
-    po_entry = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
+    conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
+        [C.STYLE, C.WHOLESALE_PRICE, C.CUSTOMER_COST]].drop_duplicates() #pc = price_conflict
+    if not conflicts.empty:
+        print(f"""The following styles have price conflicts:\n{conflicts}""")
+        raise SystemExit("Process stopped due to price conflicts.")
+    po = assign_box_number(po, rfid_series, customer, config)
+    po_style = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
     invoc.save_json(config, "config/config.json")
-    return po_entry
+    return po_style
 
 
 # new_inventory = update_inventory_in_memory(new_inventory_dfs)

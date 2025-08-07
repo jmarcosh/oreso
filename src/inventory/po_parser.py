@@ -1,8 +1,9 @@
 import argparse
+import sys
 from datetime import datetime
 
 
-from src.inventory.common import record_log
+from src.inventory.common_app import record_log, stop_if_locked_files
 from src.inventory.common_parser import read_files, allocate_stock, \
     assign_warehouse_codes_from_column_and_update_inventory, update_billing_record, update_inventory_in_memory
 from src.inventory.manual_adjustments import run_manual_adjustments
@@ -28,50 +29,50 @@ def parse_rfid_series_simple(rfid_str):
         raise argparse.ArgumentTypeError(f"Invalid RFID_SERIES format: {e}")
 
 
-def save_raw_po_and_create_file_paths(customer, delivery_date, po):
+def save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id):
     po_nums = po[C.PO_NUM].unique()
-    po_save_path = f"OC/RAW/{customer}"
+    po_save_path = f"OC/RAW/{customer.title()}"
     invoc.create_folder_path(po_save_path)
     for po_num in po_nums:
         invoc.save_csv(po[po[C.PO_NUM] == po_num], f"{po_save_path}/{po_num}.csv")
     po_num = "_".join(map(str, po_nums))
-    files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{str(po_num)}"
+    files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
     invoc.create_folder_path(files_save_path)
     return files_save_path
 
-def run_po_parser(delivery_date:str, rfid_series:str=None, temp_paths:list =[], update_inv_values:str=None):
+def run_po_parser(delivery_date:str, rfid_series:str=None, temp_paths:list =[], update_from_sharepoint:str=None):
+    stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
     logs = invoc.read_csv("logs/logs.csv")
-    po, inventory, config, po_type, matching_column = read_files(temp_paths, update_inv_values)
+    po, inventory, config, po_type, matching_column = read_files(temp_paths, update_from_sharepoint)
     record_log(logs, log_id, po_type, "parse")
     if po_type == 'receipt':
-         po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, delivery_date, update_inv_values, log_id)
+        po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id)
     else:
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_column)
         po[C.DELIVERY_DATE] = delivery_date
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column)
-        files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po)
+        files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
         if customer in ['liverpool', 'suburbia']:
             po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, rfid_series)
             txn_key = "V"
         else:
             txn_key = po.loc[0, C.PO_NUM].split("_")[1][0]
-            run_manual_adjustments(po, config, customer, delivery_date, files_save_path)
-    record_log(logs, log_id, po_type, "parse", "success")
+            run_manual_adjustments(po, config, customer, files_save_path)
     update_inventory_in_memory(updated_inv, inventory, log_id)
+    record_log(logs, log_id, po_type, "parse", "success")
     if po_type != 'receipt':
         update_billing_record(po, po_type, delivery_date, config, txn_key, log_id)
     return files_save_path
 
 
 
-
 if __name__ == '__main__':
-    RFID_SERIES = None #[['C52767864', 'C52768000'],
+    RFID_SERIES = [['C56916036', 'C56920000']]
                    # ['C56916036', 'C56917000']]
-    DELIVERY_DATE = "08/16/2025"
-    run_po_parser(DELIVERY_DATE, RFID_SERIES, update_inv_values="B25") #, update_inv_values="B25"
+    DELIVERY_DATE = "08/11/2025"
+    files_path = run_po_parser(DELIVERY_DATE, RFID_SERIES) #, update_inv_values="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
     # parser.add_argument("--date", type=str, required=True, help="Delivery date m/d/Y (e.g., '8/16/2025')")
