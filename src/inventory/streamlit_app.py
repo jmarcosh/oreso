@@ -1,6 +1,8 @@
+import os
+print("Current working directory:", os.getcwd())
+
 import streamlit as st
 import tempfile
-import os
 
 from inventory.common_app import validate_rfid_series
 from inventory.po_parser import run_po_parser
