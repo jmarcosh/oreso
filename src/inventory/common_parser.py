@@ -27,10 +27,10 @@ def read_files(temp_paths, update_from_sharepoint):
     if update_from_sharepoint:
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
     else:
-        # po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in temp_paths]
-        po_read_path = '../../files/inventory/drag_and_drop'
-        po_files = get_all_xlsx_files_in_directory(po_read_path)
-        po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in po_files]
+        po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in temp_paths]
+        # po_read_path = '../../files/inventory/drag_and_drop' for local debugging
+        # po_files = get_all_xlsx_files_in_directory(po_read_path)
+        # po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in po_files]
         po_df = pd.concat(po_dfs)
     po_type = auto_assign_po_type(po_df)
     cols_rename = config[f'{po_type.lower()}_rename']
