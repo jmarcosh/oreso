@@ -3,10 +3,10 @@ from itertools import product
 import numpy as np
 import pandas as pd
 
-from src.inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
+from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
                                          add_nan_cols)
-from src.inventory.varnames import ColNames as C
-from src.api_integrations.sharepoint_client import SharePointClient
+from inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 def find_best_carton_combo(total_volume, max_cartons, capacities, costs):

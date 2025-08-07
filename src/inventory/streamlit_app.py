@@ -2,9 +2,9 @@ import streamlit as st
 import tempfile
 import os
 
-from src.inventory.common_app import validate_rfid_series
-from src.inventory.po_parser import run_po_parser
-from src.inventory.undo_update import undo_update
+from inventory.common_app import validate_rfid_series
+from inventory.po_parser import run_po_parser
+from inventory.undo_update import undo_update
 
 # --- UI ---
 st.title("📦 INVOC")

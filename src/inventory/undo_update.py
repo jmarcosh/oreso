@@ -2,9 +2,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from src.inventory.common_app import record_log, stop_if_locked_files
-from src.inventory.varnames import ColNames as C
-from src.api_integrations.sharepoint_client import SharePointClient
+from inventory.common_app import record_log, stop_if_locked_files
+from inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 def undo_update(recovery_id=None):

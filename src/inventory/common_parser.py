@@ -7,8 +7,8 @@ from openpyxl.utils import get_column_letter
 from datetime import date, datetime
 from openpyxl import load_workbook
 
-from src.inventory.varnames import ColNames as C
-from src.api_integrations.sharepoint_client import SharePointClient
+from inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 def get_all_xlsx_files_in_directory(directory_path):

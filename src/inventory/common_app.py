@@ -3,7 +3,7 @@ import re
 
 import pandas as pd
 
-from src.api_integrations.sharepoint_client import SharePointClient
+from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 

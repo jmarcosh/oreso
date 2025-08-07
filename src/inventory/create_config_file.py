@@ -1,6 +1,6 @@
 
-from src.inventory.varnames import ColNames as C
-from src.api_integrations.sharepoint_client import SharePointClient
+from inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
 data = {
     "liverpool_rename": {
         'Orden Compra': C.PO_NUM,

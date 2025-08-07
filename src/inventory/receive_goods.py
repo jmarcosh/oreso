@@ -1,8 +1,8 @@
 import pandas as pd
 import requests
 
-from src.api_integrations.sharepoint_client import SharePointClient
-from src.inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
+from inventory.varnames import ColNames as C
 
 invoc = SharePointClient()
 

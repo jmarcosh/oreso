@@ -2,15 +2,15 @@ import argparse
 from datetime import datetime
 
 
-from src.inventory.common_app import record_log, stop_if_locked_files
-from src.inventory.common_parser import read_files, allocate_stock, \
+from inventory.common_app import record_log, stop_if_locked_files
+from inventory.common_parser import read_files, allocate_stock, \
     assign_warehouse_codes_from_column_and_update_inventory, update_billing_record, update_inventory_in_memory
-from src.inventory.manual_adjustments import run_manual_adjustments
-from src.inventory.process_purchase_orders import run_process_purchase_orders
-from src.inventory.receive_goods import receive_goods
+from inventory.manual_adjustments import run_manual_adjustments
+from inventory.process_purchase_orders import run_process_purchase_orders
+from inventory.receive_goods import receive_goods
 
-from src.inventory.varnames import ColNames as C
-from src.api_integrations.sharepoint_client import SharePointClient
+from inventory.varnames import ColNames as C
+from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
 def parse_rfid_series_simple(rfid_str):

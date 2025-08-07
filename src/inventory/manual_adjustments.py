@@ -1,5 +1,5 @@
 
-from src.inventory.common_parser import create_and_save_techsmart_txt_file, save_checklist
+from inventory.common_parser import create_and_save_techsmart_txt_file, save_checklist
 
 
 
