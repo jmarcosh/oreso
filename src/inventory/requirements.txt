@@ -1,0 +1,7 @@
+streamlit
+pandas
+openpyxl
+requests
+msal
+numpy
+python-dotenv
