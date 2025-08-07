@@ -1,6 +1,10 @@
 import sys
+import pathlib
+
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
+print("Added to sys.path:", pathlib.Path(__file__).parent.parent.resolve())
+
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 import streamlit as st
 import tempfile
 
