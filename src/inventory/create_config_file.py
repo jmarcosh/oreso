@@ -93,7 +93,7 @@ data = {
 
 
     "po_style_indexes": [
-        C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
+        C.RD, C.MOVEX_PO, C.PO_NUM, C.SHIPPED, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.COST,
     ],
 
@@ -106,7 +106,7 @@ data = {
         C.RETAIL_PRICE: 'mean',
     },
 
-    "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.SHIPPED, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
+    "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
 
     "br_columns": [
