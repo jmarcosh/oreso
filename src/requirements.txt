@@ -1,7 +1,0 @@
-streamlit
-pandas==1.51
-openpyxl
-requests
-msal
-numpy
-python-dotenv

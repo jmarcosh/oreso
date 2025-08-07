@@ -1,5 +1,5 @@
+import sys
 import os
-print("Current working directory:", os.getcwd())
 
 import streamlit as st
 import tempfile
