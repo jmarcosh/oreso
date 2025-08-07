@@ -67,7 +67,7 @@ class SharePointClient:
 
     def save_excel(self, df: pd.DataFrame, file_path: str, sheet_name: str = "Sheet1", header: bool = True):
         buffer = io.BytesIO()
-        df.to_excel(buffer, index=False, header=header, sheet_name=sheet_name, engine="openpyxl")
+        df.to_excel(buffer, index=False, na_rep="", header=header, sheet_name=sheet_name, engine="openpyxl")
         buffer.seek(0)
 
         upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
@@ -104,7 +104,7 @@ class SharePointClient:
         :return: True if upload succeeded, False otherwise.
         """
         buffer = io.StringIO()
-        df.to_csv(buffer, index=False, sep=sep)
+        df.to_csv(buffer, index=False, na_rep="", sep=sep)
         buffer.seek(0)
         content_type = "text/plain" if file_path.endswith(".txt") else "text/csv"
 
