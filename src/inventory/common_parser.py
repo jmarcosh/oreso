@@ -62,7 +62,7 @@ def auto_assign_matching_column(df, lst):
             return col
     sys.exit("Error: File must contain a matching column.")
 
-def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, column):
+def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, column, log_id):
     split_inventory = split_df_by_column(inventory.copy(), column)
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
@@ -75,7 +75,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
         it += 1
         po, to_deliver = assign_warehouse_codes(po, inventory_wh, column)
         po_wh.append(po.loc[po[C.DELIVERED] > 0].copy())
-        update_inventory(inventory_wh, po, updated_inv)
+        update_inventory(inventory_wh, po, updated_inv, log_id)
         po[C.DELIVERED] = to_deliver
         po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
         if len(po) == 0:
@@ -126,9 +126,10 @@ def split_df_by_column(df, column):
         df = df.drop(index=unique_df.index)
     return split_dfs
 
-def update_inventory(inventory_wh, po, updated_inv):
+def update_inventory(inventory_wh, po, updated_inv, log_id):
     inventory_wh = inventory_wh.join(po.groupby([C.WAREHOUSE_CODE])[C.DELIVERED].sum(), on=C.WAREHOUSE_CODE)
     inventory_wh[C.DELIVERED] = inventory_wh[C.DELIVERED].fillna(0)
+    inventory_wh[C.LOG_ID] = np.where(inventory_wh[C.DELIVERED] > 0, log_id, np.nan)
     inventory_wh[C.INVENTORY] = inventory_wh[C.INVENTORY] - inventory_wh[C.DELIVERED]
     updated_inv.append(inventory_wh.drop(columns=[C.DELIVERED]))
 

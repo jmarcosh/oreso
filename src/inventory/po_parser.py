@@ -51,13 +51,13 @@ def run_po_parser(delivery_date:str, rfid_series:str=None, temp_paths:list =[], 
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_column)
         po[C.DELIVERY_DATE] = delivery_date
-        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column)
+        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
         files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
         if customer in ['liverpool', 'suburbia']:
             po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, rfid_series)
             txn_key = "V"
         else:
-            txn_key = po.loc[0, C.PO_NUM].split("_")[1][0]
+            txn_key = po.loc[0, C.PO_NUM].rsplit("_", 1)[-1][0]
             run_manual_adjustments(po, config, customer, files_save_path)
     update_inventory_in_memory(updated_inv, inventory, log_id)
     record_log(logs, log_id, po_type, "parse", "success")
