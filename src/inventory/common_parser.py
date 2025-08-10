@@ -44,8 +44,6 @@ def read_files(temp_paths, update_from_sharepoint):
         po_dfs = read_temp_files(temp_paths)
         po_df = pd.concat(po_dfs)
         po_type = auto_assign_po_type(po_df)
-    if 'Tienda' in po_df.columns:
-        po_df['Nombre Tienda'] = assign_store_name(po_df, po_type)
     cols_rename = config[f'{po_type.lower()}_rename']
     po_df = po_df.rename(columns=cols_rename)
     if po_type != 'receipt':
@@ -61,10 +59,12 @@ def read_files(temp_paths, update_from_sharepoint):
             inventory_df, config, po_type, matching_column)
 
 
-def assign_store_name(po_df, po_type):
-    store_mapping = invoc.read_csv(f"config/tiendas_{po_type.lower()}.csv", encoding = 'latin1')
-    po_df = po_df.merge(store_mapping, how='left')
-    return po_df['Nombre Tienda'].fillna("NotFound")
+def assign_store_name(po_df, customer):
+    if customer in ['liverpool', 'suburbia']:
+        store_mapping = invoc.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
+        po_df = po_df.merge(store_mapping, how='left')
+        return po_df['Nombre Tienda'].fillna("NotFound")
+    return np.zeros(len(po_df))
 
 
 def auto_assign_po_type(df):
@@ -149,7 +149,7 @@ def split_df_by_column(df, column):
 def update_inventory(inventory_wh, po, updated_inv, log_id):
     inventory_wh = inventory_wh.join(po.groupby([C.WAREHOUSE_CODE])[C.DELIVERED].sum(), on=C.WAREHOUSE_CODE)
     inventory_wh[C.DELIVERED] = inventory_wh[C.DELIVERED].fillna(0)
-    inventory_wh[C.LOG_ID] = np.where(inventory_wh[C.DELIVERED] > 0, log_id, np.nan)
+    inventory_wh.loc[inventory_wh[C.DELIVERED] > 0, C.LOG_ID] = log_id
     inventory_wh[C.INVENTORY] = inventory_wh[C.INVENTORY] - inventory_wh[C.DELIVERED]
     updated_inv.append(inventory_wh.drop(columns=[C.DELIVERED]))
 
@@ -239,6 +239,7 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts = po.copy()
     ts = ts[ts[C.DELIVERED] > 0].reset_index(drop=True)
     ts = ts.rename(columns=ts_rename)
+    ts['Nombre Tienda'] = assign_store_name(po, customer)
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
