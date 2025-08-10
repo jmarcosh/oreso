@@ -128,7 +128,7 @@ data = {
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 3011),
+        ("NOTA DE REMISION", 3012),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),

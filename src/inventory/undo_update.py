@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from inventory.common_app import record_log, stop_if_locked_files, update_inventory_in_memory, \
+from inventory.common_app import record_log, stop_if_locked_files, \
     create_and_save_br_summary_table, create_and_save_inventory_summary_table
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
