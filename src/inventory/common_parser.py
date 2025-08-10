@@ -230,7 +230,7 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts = po.copy()
     ts = ts[ts[C.DELIVERED] > 0].reset_index(drop=True)
     ts = ts.rename(columns=ts_rename)
-    ts['Nombre Tienda'] = assign_store_name(po, customer)
+    ts['Nombre Tienda'] = assign_store_name(ts, customer)
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
