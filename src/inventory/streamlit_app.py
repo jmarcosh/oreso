@@ -24,7 +24,11 @@ with col2:
             st.success("Done")
 
 # Upload Excel files
-uploaded_files = st.file_uploader("Upload files", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "Upload files",
+    type=["csv", "xls", "xlsx"],
+    accept_multiple_files=True
+)
 
 # Optional: use existing file from SharePoint
 with st.expander("🔄 Update from SharePoint"):

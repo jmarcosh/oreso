@@ -21,6 +21,16 @@ def get_all_csv_files_in_directory(directory_path):
         if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.csv')
     ]
 
+def read_temp_files(temp_paths):
+    po_dfs = []
+    for po_path in temp_paths:
+        ext = os.path.splitext(po_path)[1].lower()
+        if ext in ['.xls', '.xlsx']:
+            po_dfs.append(pd.read_excel(po_path))
+        elif ext == '.csv':
+            po_dfs.append(pd.read_csv(po_path))
+    return po_dfs
+
 def read_files(temp_paths, update_from_sharepoint):
     config = invoc.read_json("config/config.json")
     inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
@@ -28,7 +38,7 @@ def read_files(temp_paths, update_from_sharepoint):
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
         po_type = 'update'
     else:
-        po_dfs = [pd.read_csv(po_path) for po_path in temp_paths]
+        po_dfs = read_temp_files(temp_paths)
         # po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
         # po_files = get_all_csv_files_in_directory(po_read_path)
         # po_dfs = [pd.read_csv(po_path) for po_path in po_files]

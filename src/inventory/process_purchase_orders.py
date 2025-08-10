@@ -57,7 +57,7 @@ def assign_box_number(po, customer, config, log_id):
             store_prev = store_s
         box_assignment.append(rfid_series[box]) if (len(combo_s) > 0) else box_assignment.append(None)
     rfid_series_df.loc[: box + 1, C.LOG_ID] = log_id
-    invoc.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}")
+    invoc.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}.csv")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
     return po
 
