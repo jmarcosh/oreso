@@ -7,6 +7,7 @@ from openpyxl.utils import get_column_letter
 from datetime import date, datetime
 from openpyxl import load_workbook
 
+from inventory.common_app import create_and_save_br_summary_table, create_and_save_inventory_summary_table
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
@@ -183,16 +184,6 @@ def adjust_quantities_per_row(group):
         group.iloc[-1, group.columns.get_loc(C.ORDERED)] = group[C.DELIVERED].iloc[-1] + group[C.MISSING].iloc[-1]
     return group
 
-def update_inventory_in_memory(updated_inv, inventory, log_id, config):
-    updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
-    # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
-    #     updated_inv[col] = updated_inv[col].astype(int)
-    invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
-    invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
-    inv_summ_cols = config.get('inventory_summ_columns')
-    inv_summ = updated_inv.groupby(inv_summ_cols)[C.INVENTORY].sum().reset_index()
-    invoc.save_excel(inv_summ, 'INVENTARIO/SUMMARY.xlsx')
-
 
 def save_df_in_excel_and_keep_other_sheets(df, path, sheet_name="Sheet1"):
     # Write new data, replacing the sheet but keeping others
@@ -281,18 +272,29 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key, lo
     po_br = po_style.copy()
     po_br[C.DELIVERY_DATE] = datetime.strptime(delivery_date, "%m/%d/%Y")
     po_br[C.KEY] = txn_key[0] if txn_key else np.nan
-    po_br[C.CUSTOMER] = customer.upper()
-    po_br[C.INVOICED] = po_br[C.ORDERED]
-    po_br[C.SUBTOTAL] = 0 if txn_key else po_br[C.ORDERED] * po_br[C.WHOLESALE_PRICE]
+    po_br[C.CUSTOMER] = customer.title()
+    po_br[C.SUBTOTAL] = po_br[C.DELIVERED] * po_br[C.WHOLESALE_PRICE] if txn_key == "V" else 0
     po_br[C.DISCOUNT] = 0
     if customer.lower() == 'liverpool':
         po_br[C.DISCOUNT] = po_br[C.SUBTOTAL] * .035
     po_br[C.SUBTOTAL_NET] = po_br[C.SUBTOTAL] - po_br[C.DISCOUNT]
     po_br[C.VAT] = po_br[C.SUBTOTAL_NET] * 1.16
+    po_br[C.SUBTOTAL_COST]= po_br[C.DELIVERED] * po_br[C.COST]
     po_br[C.LOG_ID] = log_id
     bru = pd.concat([br, po_br], ignore_index=True)[br_columns]
     bru[C.DELIVERY_DATE] = pd.to_datetime(bru[C.DELIVERY_DATE]).dt.date
     invoc.save_excel(bru, 'FACTURACION/FACTURACION.xlsx')
+    create_and_save_br_summary_table(po_br, config)
+
+def update_inventory_in_memory(updated_inv, inventory, log_id, config):
+    updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
+    # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
+    #     updated_inv[col] = updated_inv[col].astype(int)
+    invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
+    invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
+    create_and_save_inventory_summary_table(updated_inv, config)
+
+
 
 
 

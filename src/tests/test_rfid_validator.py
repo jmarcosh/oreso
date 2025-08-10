@@ -1,5 +1,5 @@
 import pytest
-from src.inventory.common_app import validate_rfid_series
+from src.inventory.streamlit_app import validate_rfid_series
 
 @pytest.mark.parametrize("input_str, expected", [
     ("", True),

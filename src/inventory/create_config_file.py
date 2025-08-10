@@ -109,15 +109,21 @@ data = {
     "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
 
-    "inventory_summ_columns": [C.STYLE, C.UPC, C.BRAND],
+    "inventory_summ_indexes": [C.STYLE, C.UPC, C.BRAND],
 
     "br_columns": [
         C.DELIVERY_DATE, C.KEY, C.CUSTOMER,
         C.PO_NUM, C.SHIPPED, C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE,
-        C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.COST,
-        C.ORDERED, C.DELIVERED, C.INVOICED, C.WHOLESALE_PRICE, C.SUBTOTAL, C.DISCOUNT,
+        C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.SUBTOTAL_COST,
+        C.ORDERED, C.DELIVERED, C.WHOLESALE_PRICE, C.SUBTOTAL, C.DISCOUNT,
         C.SUBTOTAL_NET, C.VAT, C.LOG_ID
     ],
+    
+    "br_summ_indexes" : [C.KEY, C.DELIVERY_DATE, C.PO_NUM, C.CUSTOMER],
+    
+    "br_summ_values": {C.SUBTOTAL: "sum",
+                       C.DELIVERED: "sum",
+                       C.COST: "sum",},
 
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
