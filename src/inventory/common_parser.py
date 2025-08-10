@@ -26,13 +26,14 @@ def read_files(temp_paths, update_from_sharepoint):
     inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
     if update_from_sharepoint:
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
+        po_type = 'update'
     else:
         po_dfs = [pd.read_csv(po_path) for po_path in temp_paths]
         # po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
         # po_files = get_all_csv_files_in_directory(po_read_path)
         # po_dfs = [pd.read_csv(po_path) for po_path in po_files]
         po_df = pd.concat(po_dfs)
-    po_type = auto_assign_po_type(po_df)
+        po_type = auto_assign_po_type(po_df)
     po_df['Nombre Tienda'] = assign_store_name(po_df, po_type)
     cols_rename = config[f'{po_type.lower()}_rename']
     po_df = po_df.rename(columns=cols_rename)

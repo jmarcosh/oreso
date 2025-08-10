@@ -27,7 +27,7 @@ with col2:
 uploaded_files = st.file_uploader("Upload files", type="csv", accept_multiple_files=True)
 
 # Optional: use existing file from SharePoint
-with st.expander("🔄 Update from catalog"):
+with st.expander("🔄 Update from SharePoint"):
     update_from_sharepoint = st.text_input(
         "Season",
         placeholder="ex. B26"
@@ -42,7 +42,7 @@ if st.button("Start"):
         st.error("Upload a file first")
         st.stop()
     if not delivery_date:
-        st.error("Update delivery date")
+        st.error("Enter delivery date")
         st.stop()
 
 
