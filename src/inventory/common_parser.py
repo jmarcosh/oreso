@@ -11,14 +11,14 @@ from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
 invoc = SharePointClient()
 
-def get_all_xlsx_files_in_directory(directory_path):
+def get_all_csv_files_in_directory(directory_path):
     if not os.path.isdir(directory_path):
         raise FileNotFoundError(f"{directory_path} is not a valid directory.")
 
     return [
         os.path.join(directory_path, f)
         for f in os.listdir(directory_path)
-        if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.xlsx')
+        if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.csv')
     ]
 
 def read_files(temp_paths, update_from_sharepoint):
@@ -27,12 +27,13 @@ def read_files(temp_paths, update_from_sharepoint):
     if update_from_sharepoint:
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
     else:
-        po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in temp_paths]
-        # po_read_path = '../../files/inventory/drag_and_drop' for local debugging
-        # po_files = get_all_xlsx_files_in_directory(po_read_path)
-        # po_dfs = [pd.read_excel(po_path, sheet_name=0) for po_path in po_files]
+        po_dfs = [pd.read_csv(po_path) for po_path in temp_paths]
+        # po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
+        # po_files = get_all_csv_files_in_directory(po_read_path)
+        # po_dfs = [pd.read_csv(po_path) for po_path in po_files]
         po_df = pd.concat(po_dfs)
     po_type = auto_assign_po_type(po_df)
+    po_df['Nombre Tienda'] = assign_store_name(po_df, po_type)
     cols_rename = config[f'{po_type.lower()}_rename']
     po_df = po_df.rename(columns=cols_rename)
     if po_type != 'receipt':
@@ -46,6 +47,13 @@ def read_files(temp_paths, update_from_sharepoint):
              .sort_values(by=matching_column)[cols]
              .reset_index(drop=True)),
             inventory_df, config, po_type, matching_column)
+
+
+def assign_store_name(po_df, po_type):
+    store_mapping = invoc.read_csv(f"config/tiendas_{po_type.lower()}.csv")
+    po_df = po_df.merge(store_mapping, how='left')
+    return po_df['Nombre Tienda'].fillna("NotFound")
+
 
 def auto_assign_po_type(df):
     if '# Prov' in df.columns:
@@ -147,10 +155,10 @@ def split_ordered_quantity_by_warehouse_codes(po, column):
     po['_is_last'] = group_indices == (group_sizes - 1)
 
     # Adjust ORDERED based on position
-    po.loc[~po['_is_last'], C.ORDERED] = po.loc[~po['_is_last'], C.DELIVERED]
-    po.loc[po['_is_last'], C.ORDERED] = (
+    po[~po['_is_last']][C.ORDERED] = po.loc[~po['_is_last'], C.DELIVERED].values
+    po[po['_is_last']][C.ORDERED] = (
         po.loc[po['_is_last'], C.DELIVERED] + po.loc[po['_is_last'], C.MISSING]
-    )
+    ).values
 
     # Clean up
     po = po.drop(columns=[C.MISSING, '_is_last'])
@@ -163,12 +171,15 @@ def adjust_quantities_per_row(group):
         group.iloc[-1, group.columns.get_loc(C.ORDERED)] = group[C.DELIVERED].iloc[-1] + group[C.MISSING].iloc[-1]
     return group
 
-def update_inventory_in_memory(updated_inv, inventory, log_id):
+def update_inventory_in_memory(updated_inv, inventory, log_id, config):
     updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
     # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
     #     updated_inv[col] = updated_inv[col].astype(int)
     invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
-    invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv',)
+    invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
+    inv_summ_cols = config.get('inventory_summ_columns')
+    inv_summ = updated_inv.groupby(inv_summ_cols)[C.INVENTORY].sum().reset_index()
+    invoc.save_excel(inv_summ, 'INVENTARIO/SUMMARY.xlsx')
 
 
 def save_df_in_excel_and_keep_other_sheets(df, path, sheet_name="Sheet1"):
@@ -209,7 +220,7 @@ def allocate_stock(po, inventory, column):
         delivered.append(delivered_sku)
     return np.concatenate(delivered)
 
-def create_and_save_techsmart_txt_file(po, customer, config, po_num, files_save_path):
+def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save_path):
     ts_rename = config["ts_rename"]
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
@@ -224,7 +235,7 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_num, files_save_
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
     # po[(po[STORE_ID] == 688) & (po[SKU] == 1035942641)]
-    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_num)}.txt", sep='\t')
+    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
     return ts[ts_columns_csv]
 
 def add_nan_cols(df, cols):
@@ -232,12 +243,12 @@ def add_nan_cols(df, cols):
         if col not in df.columns:
             df[col] = np.nan
 
-def save_checklist(po_style, po_store, techsmart, config, po_num, files_save_path):
+def save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_path):
     cols = config['checklist_columns']
     checklist = po_style[cols]
     dfs = [checklist, po_store, techsmart]
     sheet_names = ["CHECKLIST", "TIENDA", "TECHSMART"]
-    checklist_path = f"{files_save_path}/Checklist_{po_num}.xlsx"
+    checklist_path = f"{files_save_path}/Checklist_{po_nums}.xlsx"
     invoc.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
 
 def autoadjust_column_widths(file_path):

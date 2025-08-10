@@ -109,6 +109,8 @@ data = {
     "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
 
+    "inventory_summ_columns": [C.STYLE, C.UPC, C.BRAND],
+
     "br_columns": [
         C.DELIVERY_DATE, C.KEY, C.CUSTOMER,
         C.PO_NUM, C.SHIPPED, C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE,
@@ -120,7 +122,7 @@ data = {
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 3010),
+        ("NOTA DE REMISION", 3011),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),

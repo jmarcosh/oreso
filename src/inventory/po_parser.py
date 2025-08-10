@@ -39,7 +39,7 @@ def save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id):
     invoc.create_folder_path(files_save_path)
     return files_save_path
 
-def run_po_parser(delivery_date:str, rfid_series:str=None, temp_paths:list =[], update_from_sharepoint:str=None):
+def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=None):
     stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
     logs = invoc.read_csv("logs/logs.csv")
@@ -54,24 +54,22 @@ def run_po_parser(delivery_date:str, rfid_series:str=None, temp_paths:list =[], 
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
         files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
         if customer in ['liverpool', 'suburbia']:
-            po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, rfid_series)
+            po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id)
             txn_key = "V"
         else:
             txn_key = po.loc[0, C.PO_NUM].rsplit("_", 1)[-1][0]
             run_manual_adjustments(po, config, customer, files_save_path)
-    update_inventory_in_memory(updated_inv, inventory, log_id)
-    record_log(logs, log_id, po_type, "parse", "success")
+    update_inventory_in_memory(updated_inv, inventory, log_id, config)
     if po_type != 'receipt':
         update_billing_record(po, po_type, delivery_date, config, txn_key, log_id)
+    record_log(logs, log_id, po_type, "parse", "success")
     return files_save_path
 
 
 
 if __name__ == '__main__':
-    RFID_SERIES = [['C56916036', 'C56920000']]
-                   # ['C56916036', 'C56917000']]
-    DELIVERY_DATE = "08/11/2025"
-    files_path = run_po_parser(DELIVERY_DATE, RFID_SERIES) #, update_inv_values="B25"
+    DELIVERY_DATE = "08/28/2025"
+    files_path = run_po_parser(DELIVERY_DATE) #, update_inv_values="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
     # parser.add_argument("--date", type=str, required=True, help="Delivery date m/d/Y (e.g., '8/16/2025')")

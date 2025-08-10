@@ -8,7 +8,6 @@ import os
 import streamlit as st
 import tempfile
 
-from inventory.common_app import validate_rfid_series
 from inventory.po_parser import run_po_parser
 from inventory.undo_update import undo_update
 
@@ -19,43 +18,34 @@ st.title("📦 INVOC")
 col1, col2 = st.columns([5, 1])
 with col2:
     with st.popover("↩️ undo"):
-        recovery_id = st.text_input("ID de recuperación (opcional)", key="recovery_id_input")
-        if st.button("Deshacer", key="undo_button"):
+        recovery_id = st.text_input("log id (optional)", key="recovery_id_input")
+        if st.button("Undo", key="undo_button"):
             undo_update(recovery_id if recovery_id else None)
-            st.success("Se deshicieron los cambios.")
+            st.success("Done")
 
 # Upload Excel files
-st.header("1. Sube la(s) Orden(es) de Compra")
-uploaded_files = st.file_uploader("Archivo de Excel Original", type="xlsx", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload files", type="csv", accept_multiple_files=True)
 
 # Optional: use existing file from SharePoint
-with st.expander("🔄 O actualiza el inventario usando el catalogo"):
+with st.expander("🔄 Update from catalog"):
     update_from_sharepoint = st.text_input(
-        "Temporada de recibo",
-        placeholder="ej. B26"
+        "Season",
+        placeholder="ex. B26"
     )
 
 # Parameters
-st.header("2. Ingresa Parametros")
-delivery_date = st.date_input("Fecha de Entrega")
-rfid_series_str = st.text_input("RFID Series (e.j., C52767864-C52768000,C56916036-C56917000)")
+delivery_date = st.date_input("Delivery Date")
 
 # Run
-if st.button("Iniciar proceso"):
+if st.button("Start"):
     if not uploaded_files and not update_from_sharepoint:
-        st.error("Sube al menos un archivo .xlsx o indica el archivo en SharePoint.")
+        st.error("Upload a file first")
         st.stop()
     if not delivery_date:
-        st.error("Ingresa la fecha de entrega.")
-        st.stop()
-    if not validate_rfid_series(rfid_series_str):
-        st.error(
-            "Formato de RFID inválido. Todos los rangos deben comenzar con el mismo prefijo (C o SB), "
-            "los valores numéricos deben ser crecientes en cada rango."
-        )
+        st.error("Update delivery date")
         st.stop()
 
-    rfid_series = [x.strip().split('-') for x in rfid_series_str.split(',')] if rfid_series_str.strip() else None
+
 
     temp_paths = []
     if uploaded_files:
@@ -66,14 +56,13 @@ if st.button("Iniciar proceso"):
             temp_paths.append(temp_file.name)
 
     # Run parser
-    st.info("Procesando archivo...")
+    st.info("Running...")
     sharepoint_paths = run_po_parser(
         delivery_date.strftime("%m/%d/%Y"),
-        rfid_series,
         temp_paths,
         update_from_sharepoint if update_from_sharepoint.strip() else None
     )
-    st.success("¡Listo! Archivos guardados en SharePoint")
+    st.success("Success! Files save in Sharepoint")
     st.markdown(f"- 📂 `{sharepoint_paths}`")
 
     st.session_state['temp_files'] = temp_paths
