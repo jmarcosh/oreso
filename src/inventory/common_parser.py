@@ -18,7 +18,7 @@ def get_all_csv_files_in_directory(directory_path):
     return [
         os.path.join(directory_path, f)
         for f in os.listdir(directory_path)
-        if os.path.isfile(os.path.join(directory_path, f)) and f.lower().endswith('.csv')
+        if os.path.isfile(os.path.join(directory_path, f)) and (f.lower().endswith('.csv') | f.lower().endswith('.xlsx'))
     ]
 
 def read_temp_files(temp_paths):
@@ -38,13 +38,14 @@ def read_files(temp_paths, update_from_sharepoint):
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
         po_type = 'update'
     else:
+        if invoc._is_local():
+            po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
+            temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_dfs = read_temp_files(temp_paths)
-        # po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
-        # po_files = get_all_csv_files_in_directory(po_read_path)
-        # po_dfs = [pd.read_csv(po_path) for po_path in po_files]
         po_df = pd.concat(po_dfs)
         po_type = auto_assign_po_type(po_df)
-    po_df['Nombre Tienda'] = assign_store_name(po_df, po_type)
+    if 'Tienda' in po_df.columns:
+        po_df['Nombre Tienda'] = assign_store_name(po_df, po_type)
     cols_rename = config[f'{po_type.lower()}_rename']
     po_df = po_df.rename(columns=cols_rename)
     if po_type != 'receipt':
