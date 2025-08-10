@@ -28,7 +28,7 @@ def read_temp_files(temp_paths):
         if ext in ['.xls', '.xlsx']:
             po_dfs.append(pd.read_excel(po_path))
         elif ext == '.csv':
-            po_dfs.append(pd.read_csv(po_path))
+            po_dfs.append(pd.read_csv(po_path), encoding='latin1')
     return po_dfs
 
 def read_files(temp_paths, update_from_sharepoint):
@@ -61,7 +61,7 @@ def read_files(temp_paths, update_from_sharepoint):
 
 
 def assign_store_name(po_df, po_type):
-    store_mapping = invoc.read_csv(f"config/tiendas_{po_type.lower()}.csv")
+    store_mapping = invoc.read_csv(f"config/tiendas_{po_type.lower()}.csv", encoding = 'latin1')
     po_df = po_df.merge(store_mapping, how='left')
     return po_df['Nombre Tienda'].fillna("NotFound")
 
