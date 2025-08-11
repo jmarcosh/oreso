@@ -22,15 +22,17 @@ def get_all_csv_files_in_directory(directory_path):
         if os.path.isfile(os.path.join(directory_path, f)) and (f.lower().endswith('.csv') | f.lower().endswith('.xlsx'))
     ]
 
-def read_temp_files(temp_paths):
+def read_temp_files(temp_files):
     po_dfs = []
-    for po_path in temp_paths:
-        ext = os.path.splitext(po_path)[1].lower()
+    for po_file in temp_files:
+        filename = po_file.name  # Get filename from UploadedFile
+        ext = os.path.splitext(filename)[1].lower()
         if ext in ['.xls', '.xlsx']:
-            po_dfs.append(pd.read_excel(po_path))
+            po_dfs.append(pd.read_excel(po_file))
         elif ext == '.csv':
-            po_dfs.append(pd.read_csv(po_path), encoding='latin1')
+            po_dfs.append(pd.read_csv(po_file, encoding='latin1'))
     return po_dfs
+
 
 def read_files(temp_paths, update_from_sharepoint):
     config = invoc.read_json("config/config.json")
