@@ -25,12 +25,10 @@ def get_all_csv_files_in_directory(directory_path):
 def read_temp_files(temp_files):
     po_dfs = []
     for po_file in temp_files:
-        filename = po_file.name  # Get filename from UploadedFile
-        ext = os.path.splitext(filename)[1].lower()
-        if ext in ['.xls', '.xlsx']:
-            po_dfs.append(pd.read_excel(po_file))
-        elif ext == '.csv':
+        try:
             po_dfs.append(pd.read_csv(po_file, encoding='latin1'))
+        except pd.errors.ParserError:
+            po_dfs.append(pd.read_excel(po_file))
     return po_dfs
 
 
