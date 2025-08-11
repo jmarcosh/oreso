@@ -121,14 +121,14 @@ def create_and_save_delivery_note(po_style, delivery_date, config, po_nums, sect
             dn_structure[line][1] = str(value)
         blank_row = pd.DataFrame([[]])
         dn_columns = config["dn_columns"]
-        dn = po_style.groupby(dn_columns[1:5]).agg({
+        dn = po_style.loc[po_style[(C.PO_NUM == po_num)]].groupby(dn_columns[1:5]).agg({
             C.DELIVERED: 'sum', C.CUSTOMER_COST: 'mean'
         }).reset_index()[dn_columns]
         dn['SUBTOTAL'] = dn[C.DELIVERED] * dn[C.CUSTOMER_COST]
         subtotal = dn['SUBTOTAL'].sum()
         discount = subtotal * .045
         subtotal_2 = subtotal - discount
-        vat = subtotal_2 * .016
+        vat = subtotal_2 * .16
         total = subtotal_2 + vat
         dn_totals = pd.DataFrame({5: ["Subtotal", "Descuento 4.5%", "SubTotal Menos", "IVA", "Total"],
                                   6: [subtotal, discount, subtotal_2, vat, total], })
