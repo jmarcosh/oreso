@@ -41,9 +41,9 @@ def read_files(temp_paths, update_from_sharepoint):
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
         po_type = 'update'
     else:
-        if invoc._is_local():
-            po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
-            temp_paths = get_all_csv_files_in_directory(po_read_path)
+        # if invoc._is_local():
+        #     po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
+        #     temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_dfs = read_temp_files(temp_paths)
         po_df = pd.concat(po_dfs)
         po_type = auto_assign_po_type(po_df)
