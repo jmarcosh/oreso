@@ -60,8 +60,8 @@ def read_files(temp_paths, update_from_sharepoint):
 def assign_store_name(po_df, customer):
     if customer in ['liverpool', 'suburbia']:
         store_mapping = invoc.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
-        po_df = po_df.merge(store_mapping, how='left')
-        return po_df['Nombre Tienda'].fillna("NotFound")
+        po_df = po_df.merge(store_mapping, on=C.STORE_ID, how='left')
+        return po_df[C.STORE_NAME].fillna("NotFound")
     return np.zeros(len(po_df))
 
 
@@ -226,8 +226,8 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts_columns_csv = config["ts_columns_csv"]
     ts = po.copy()
     ts = ts[ts[C.DELIVERED] > 0].reset_index(drop=True)
+    ts[C.STORE_NAME] = assign_store_name(ts, customer)
     ts = ts.rename(columns=ts_rename)
-    ts['Nombre Tienda'] = assign_store_name(ts, customer)
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
