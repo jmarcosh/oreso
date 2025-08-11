@@ -43,7 +43,7 @@ def assign_box_number(po, customer, config, log_id):
     c = 0
     # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
     rfid_series_df = invoc.read_csv(f"config/rfid_{customer.lower()}.csv")
-    rfid_series = rfid_series_df.iloc[rfid_series_df[C.LOG_ID].isna(), 0].tolist()
+    rfid_series = rfid_series_df.loc[rfid_series_df[C.LOG_ID].isna(), 0].tolist()
     box = 0
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
