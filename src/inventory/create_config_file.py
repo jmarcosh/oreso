@@ -13,7 +13,6 @@ data = {
         'Costo': C.CUSTOMER_COST,
         'Precio Normal': C.CUSTOMER_PRICE,
         'Tienda': C.STORE_ID,
-        'Nombre Tienda': C.STORE_NAME,
         'Cantidad': C.ORDERED
     },
 
@@ -28,7 +27,6 @@ data = {
         'Costo Uni': C.CUSTOMER_COST,
         'Precio Regular': C.CUSTOMER_PRICE,
         'Tda Distr.': C.STORE_ID,
-        'Nombre Tienda': C.STORE_NAME,
         'Cantidad': C.ORDERED
     },
 
