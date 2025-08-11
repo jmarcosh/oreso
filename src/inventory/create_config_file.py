@@ -82,6 +82,7 @@ data = {
 
     "cartons": [
         {"name": "RM-51", "capacity": 23760, "cost": 24.46, "dimensions": (43, 33, 22)},
+        {"name": "RM-N", "capacity": 20196, "cost": 21.75, "dimensions": (53, 22, 22)},
         {"name": "RM-32", "capacity": 17820, "cost": 17.25, "dimensions": (29, 29, 22)},
         {"name": "RM-31", "capacity": 7920, "cost": 11.5, "dimensions": (30, 21, 14)},
     ],
@@ -121,12 +122,12 @@ data = {
     
     "br_summ_values": {C.SUBTOTAL: "sum",
                        C.DELIVERED: "sum",
-                       C.COST: "sum",},
+                       C.SUBTOTAL_COST: "sum",},
 
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 3012),
+        ("NOTA DE REMISION", 3014),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),

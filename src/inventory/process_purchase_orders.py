@@ -2,7 +2,7 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
-
+import re
 from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
                                          add_nan_cols)
 from inventory.varnames import ColNames as C
@@ -149,8 +149,20 @@ def create_and_save_asn_file(po, config, po_nums, files_save_path):
     add_nan_cols(asn, asn_columns)
     invoc.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_nums}.xlsx")
 
+def sort_rd(rd):
+    match = re.match(r'([a-zA-Z])(\d+)([a-zA-Z]?)', rd)
+    prefix = match.group(1)
+    number = int(match.group(2))
+    suffix = match.group(3) or ''
+    return number, suffix, prefix
+
 def create_po_summary_by_style(po, config):
     po_gb = po.groupby(config['po_style_indexes']).agg(config['po_style_values']).reset_index()
+    po_gb = po_gb.sort_values(
+        by=[C.RD, C.WAREHOUSE_CODE],
+        key=lambda col: col.map(sort_rd) if col.name == 'code' else col,
+        ignore_index=True
+    )
     return po_gb
 
 def run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id):

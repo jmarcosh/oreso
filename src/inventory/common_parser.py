@@ -187,12 +187,6 @@ def save_df_in_excel_and_keep_other_sheets(df, path, sheet_name="Sheet1"):
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-def sort_rd(rd):
-    match = re.match(r'([a-zA-Z])(\d+)([a-zA-Z]?)', rd)
-    prefix = match.group(1)
-    number = int(match.group(2))
-    suffix = match.group(3) or ''
-    return number, suffix, prefix
 
 def allocate_stock(po, inventory, column):
     code_lst = po[column].unique()
@@ -281,7 +275,7 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key, lo
     bru = pd.concat([br, po_br], ignore_index=True)[br_columns]
     bru[C.DELIVERY_DATE] = pd.to_datetime(bru[C.DELIVERY_DATE]).dt.date
     invoc.save_excel(bru, 'FACTURACION/FACTURACION.xlsx')
-    create_and_save_br_summary_table(po_br, config)
+    create_and_save_br_summary_table(bru, config)
 
 def update_inventory_in_memory(updated_inv, inventory, log_id, config):
     updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
