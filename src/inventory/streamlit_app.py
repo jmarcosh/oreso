@@ -67,8 +67,13 @@ with col2:
     with st.popover("↩️ undo"):
         recovery_id = st.text_input("log id (optional)", key="recovery_id_input")
         if st.button("Undo", key="undo_button"):
-            undo_inventory_update(recovery_id if recovery_id else None)
-            st.success("Done")
+            try:
+                recovery_id_int = int(recovery_id) if recovery_id.strip() else None
+            except ValueError:
+                st.error("Please enter a valid number.")
+            else:
+                undo_inventory_update(recovery_id_int)
+                st.success("Done")
 
 # Upload Excel files
 uploaded_files = st.file_uploader(
