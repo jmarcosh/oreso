@@ -78,7 +78,7 @@ with col2:
 # Upload Excel files
 uploaded_files = st.file_uploader(
     "Upload files",
-    type=["csv", "xls", "xlsx"],
+    type=["xlsx"],
     accept_multiple_files=True
 )
 

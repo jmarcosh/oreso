@@ -25,10 +25,7 @@ def get_all_csv_files_in_directory(directory_path):
 def read_temp_files(temp_files):
     po_dfs = []
     for po_file in temp_files:
-        try:
-            po_dfs.append(pd.read_csv(po_file, encoding='latin1'))
-        except pd.errors.ParserError:
-            po_dfs.append(pd.read_excel(po_file))
+        po_dfs.append(pd.read_excel(po_file))
     return po_dfs
 
 
