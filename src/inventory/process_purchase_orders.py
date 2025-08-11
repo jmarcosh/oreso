@@ -134,7 +134,7 @@ def create_and_save_delivery_note(po_style, delivery_date, config, po_nums, sect
                                   6: [subtotal, discount, subtotal_2, vat, total], })
         delivery_note = pd.concat([pd.DataFrame(dn_structure), blank_row, dn.T.reset_index().T, dn_totals],
                                   ignore_index=True)
-        dn_file_path = f"{files_save_path}/Nota_Remision_str{po_num}_{delivery_num}.xlsx"
+        dn_file_path = f"{files_save_path}/Nota_Remision_{po_num}_{delivery_num}.xlsx"
         invoc.save_delivery_note_excel(delivery_note, dn_file_path)
 
 def create_and_save_asn_file(po, config, po_nums, files_save_path):
