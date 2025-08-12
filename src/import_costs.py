@@ -9,16 +9,22 @@ from api_integrations.read_excel_files import SharePointContext
 # INPUTS
 
 
-costing_structure = {'maiden_top': 1.23,
-                     'maiden_bottom': 1.19,
-                     'private_label': 1.15,
-                     'tahari': 1.22,
-                     'no_commission': 1,
-                     'commission_15': 1.15,
-                     'splendid_top': 1.23,
-                     'splendid_bottom': 1.19,}
+costing_structure = {
+    'splendid_top': 1.23,
+    'splendid_panty': 1.19,
+    'thatsit_top': 1.15,
+    'thatsit_panty': 1.15,
+    'thatsit_boxer': 1.15,
+    'thatsit_thermal': 1.15,
+    'piquenique_panty': 1.15,
+    'piquenique_boxer': 1.15,
+    'tahari_top': 1.22,
+    'tahari_underwire': 1.22,
+    'tahari_wireless': 1.22,
+    'tahari_panty': 1.22
+}
 
-customer_net_payments = {'lvp': 0.88, 'sub': 0.8}
+customer_net_payments = dict(lvp_b=0.88, lvp_m=0.88, sub_b=0.79, sub_m=0.79)
 
 retention_rate = 0.1015
 
@@ -44,7 +50,7 @@ def _compute_unit_other_charges(df, general_weight):
     unit_charges = pd.Series([0] * len(df))
     for lst in OTHER_CHARGES_MX:
         invoice_data_temp = []
-        if lst[1][0] != '0':
+        if lst[0][0] != '0':
             for num in lst[0]:
                 invoice_data_temp.append(df[df['INVOICE'] == int(num)])
             invoice_data = pd.concat(invoice_data_temp)
@@ -79,15 +85,16 @@ s.write_df_to_excel(pars.reset_index(), output_folder, f"parameters_{RD}.xlsx")
 GOODS_TOTAL_COST_MX = float(pars.loc['goods_total_cost_mx'])
 CUSTOMS_RETENTION_MX = float(pars.loc['customs_retention_mx'])
 TAXES_MX = float(pars.loc['taxes_mx'])
-SEA_FREIGHT_US = float(pars.loc['sea_freight_us'])
+SEA_FREIGHT_MX = float(pars.loc['sea_freight_mx'])
 LAND_FREIGHT_MX = float(pars.loc['land_freight_mx'])
-BROKER_FEE_US = float(pars.loc['broker_fee_us'])
+BROKER_FEE_MX = float(pars.loc['broker_fee_mx'])
 BROKER_XE = float(pars.loc['broker_xe'])
 COST_FACTOR = float(pars.loc['cost_factor'])
-TOTAL_PAYMENTS_MX = float(pars.loc['total_payments_mx']) - CUSTOMS_RETENTION_MX
 OTHER_CHARGES_MX = _parse_charges_and_invoice_from_other_charges(pars.loc['other_charges_mx', 'value'])
+other_charges_mx_sum = sum([float(x[1]) for x in OTHER_CHARGES_MX])
+TOTAL_PAYMENTS_MX = GOODS_TOTAL_COST_MX + TAXES_MX + SEA_FREIGHT_MX + LAND_FREIGHT_MX + BROKER_FEE_MX + other_charges_mx_sum
 
-delta_factor = [costing_structure[x] for x in product_data['TYPE']]
+delta_factor = [costing_structure[x + "_" + y] for x, y in zip(product_data['BRAND'], product_data['PRODUCT'])]
 unit_origin_cost_us = product_data['FOB'] * delta_factor
 total_origin_invoice_us = product_data['QUANTITY'] @ unit_origin_cost_us
 total_quantity = product_data['QUANTITY'].sum()
@@ -95,11 +102,11 @@ goods_xe = GOODS_TOTAL_COST_MX / total_origin_invoice_us
 unit_origin_cost_mx = unit_origin_cost_us * goods_xe
 
 unit_weight = unit_origin_cost_us / total_origin_invoice_us
-unit_freight_mx = (SEA_FREIGHT_US * BROKER_XE + LAND_FREIGHT_MX) * unit_weight
+unit_freight_mx = (SEA_FREIGHT_MX + LAND_FREIGHT_MX) * unit_weight
 
-unit_cost_mx = product_data['WHOLESALE_PRICE'] * COST_FACTOR
+unit_cost_mx = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['BUS_KEY']] * COST_FACTOR
 transfer_commission_mx = (product_data['QUANTITY'] @ unit_cost_mx) * 0.04
-unit_commission_mx = (BROKER_FEE_US * BROKER_XE + transfer_commission_mx) * unit_weight
+unit_commission_mx = (BROKER_FEE_MX + transfer_commission_mx) * unit_weight
 product_data['STYLE_NUMBER'] = [style_to_style_number(x) for x in product_data['STYLE']]
 customs_data['TOTAL_TAX_RATE'] = (customs_data['TAX_RATE'] + 1.008) * 1.16 - 1
 customs_table = product_data.merge(customs_data.rename({'FOB': 'FOB_CUSTOMS', 'STYLE': 'STYLE_NUMBER'},
@@ -112,6 +119,7 @@ unit_tax_mx = (customs_table['FOB_CUSTOMS'] * customs_table['PCS_PER_PACK'] *
 estimated_retention_mx = (((customs_data['PCS'] * (customs_data['REFERENCE'] - customs_data['FOB']).clip(lower=0)) @
                            customs_data['TOTAL_TAX_RATE']) * BROKER_XE)
 retention_correction_factor = CUSTOMS_RETENTION_MX / estimated_retention_mx if estimated_retention_mx > 0 else 0
+print('retention_correction_factor:', retention_correction_factor)
 unit_retention_mx = ((customs_table['REFERENCE'] - customs_table['FOB_CUSTOMS']).clip(lower=0) * customs_table['PCS_PER_PACK'] *
                      customs_table['TOTAL_TAX_RATE'] * retention_correction_factor * BROKER_XE)
 
@@ -119,7 +127,7 @@ unit_other_charges_mx = _compute_unit_other_charges(product_data, unit_weight)
 
 unit_basic_cost_mx = (unit_origin_cost_mx + unit_other_charges_mx + unit_freight_mx + unit_commission_mx + unit_tax_mx +
                       unit_retention_mx * retention_rate)
-net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['CUSTOMER']]
+net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['BUS_KEY']]
 unit_margin = 1 - (unit_basic_cost_mx / 1.16) / net_wholesale_price
 
 basic_cost = pd.DataFrame({'STYLE': product_data['STYLE'], 'QUANTITY': product_data['QUANTITY'],
@@ -137,8 +145,8 @@ comparison = TOTAL_PAYMENTS_MX + transfer_commission_mx + CUSTOMS_RETENTION_MX *
 print('Difference between payments and basic cost', comparison)
 if abs(comparison) > 3 or np.isnan(comparison):
     comp_goods = GOODS_TOTAL_COST_MX - product_data['QUANTITY'] @ unit_origin_cost_mx
-    comp_freight = (SEA_FREIGHT_US * BROKER_XE + LAND_FREIGHT_MX) - product_data['QUANTITY'] @ unit_freight_mx
-    comp_comm = (BROKER_FEE_US * BROKER_XE + transfer_commission_mx) - product_data['QUANTITY'] @ unit_commission_mx
+    comp_freight = (SEA_FREIGHT_MX + LAND_FREIGHT_MX) - product_data['QUANTITY'] @ unit_freight_mx
+    comp_comm = (BROKER_FEE_MX + transfer_commission_mx) - product_data['QUANTITY'] @ unit_commission_mx
     comp_tax = TAXES_MX - product_data['QUANTITY'] @ unit_tax_mx
     comp_ret = CUSTOMS_RETENTION_MX * retention_rate - product_data['QUANTITY'] @ unit_retention_mx * retention_rate
     comp_oc = sum(float(charge[1]) for charge in OTHER_CHARGES_MX) - product_data['QUANTITY'] @ unit_other_charges_mx
@@ -153,10 +161,8 @@ if abs(comparison) > 3 or np.isnan(comparison):
     }
 
     for comp_name, comp_value in comparisons.items():
-        if abs(comp_value) > 1:
+        if (abs(comp_value) > 1) or np.isnan(comp_value):
             print(f"Check the {comp_name} values: {comp_value:.2f}")
-        else:
-            print("Error in total_payments_mx")
 
     sys.exit()
 
@@ -194,7 +200,15 @@ if unit_other_charges_mx.sum() == 0:
 s.write_df_to_excel(basic_cost_save, output_folder, f"basic_cost_{RD}.xlsx")
 s.write_df_to_excel(indicator, output_folder, f"indicator_{RD}.xlsx")
 
-proforma = product_data.iloc[:, :8]
+proforma_cols = ["INVOICE", "RD", "MOVEX_PO", "STYLE", "DESCRIPTION", "UPC", "QUANTITY"]
+
+proforma = product_data[proforma_cols].copy()
 proforma['PRICE'] = unit_cost_mx
 proforma['SUBTOTAL'] = proforma['QUANTITY'] * proforma['PRICE']
 s.write_df_to_excel(proforma, output_folder, f"proforma_{RD}_{SHIPMENT_ID}_{CUSTOMS_ID}.xlsx")
+
+
+product_data['FOB+RC'] = unit_origin_cost_us
+product_data['TOTAL'] = total_origin_invoice_us
+product_data['COST'] = unit_cost_mx
+s.write_df_to_excel(product_data, output_folder, f"FOB_{RD}.xlsx")
