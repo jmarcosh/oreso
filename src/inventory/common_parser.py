@@ -22,7 +22,7 @@ def get_all_csv_files_in_directory(directory_path):
 def read_temp_files(temp_files):
     po_dfs = []
     for temp_file in temp_files:
-        filename = temp_file.lower() if invoc.is_local else temp_file.name.lower()
+        filename = temp_file.lower()
         if filename.endswith(".xlsx"):
             po_dfs.append(pd.read_excel(temp_file))
         elif filename.endswith(".csv"):
