@@ -11,24 +11,26 @@ from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook, Workbook
 
 
-class SharePointClient:
-    def __init__(self, config_path="../config_files/secrets.toml"):
 
-        self._load_config(config_path)
+class SharePointClient:
+    def __init__(self):
+        self._local_config_path = "../config_files/secrets.toml"
+        self._is_local = self.is_local()
+        self._load_config()
         self._authenticate()
         self._get_site_and_drive_ids()
 
-    @staticmethod
-    def _is_local():
+    def is_local(self):
         # Example heuristic: check environment variable or file existence
-        import os
-        return os.path.exists("../config_files/secrets.toml")
+        base_dir = os.path.dirname(__file__)  # folder of the current .py file
+        abs_path = os.path.abspath(os.path.join(base_dir, self._local_config_path))
+        if os.path.exists(abs_path):
+            return abs_path
+        return False
 
-    def _load_config(self, path):
-        if self._is_local():
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            abs_path = os.path.join(base_dir, path)
-            config = toml.load(abs_path).get("azure", {})
+    def _load_config(self):
+        if self.is_local:
+            config = toml.load(self._is_local).get("azure", {})
         else:
             config = st.secrets.get("azure", {})
 
@@ -66,6 +68,8 @@ class SharePointClient:
         return df
 
     def save_excel(self, df: pd.DataFrame, file_path: str, sheet_name: str = "Sheet1", header: bool = True):
+        if self.is_local:
+            return
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False, na_rep="", header=header, sheet_name=sheet_name, engine="openpyxl")
         buffer.seek(0)
@@ -103,6 +107,8 @@ class SharePointClient:
         :param sep: Field delimiter (default ','; use '\t' for tab-delimited .txt).
         :return: True if upload succeeded, False otherwise.
         """
+        if self.is_local:
+            return
         buffer = io.StringIO()
         df.to_csv(buffer, index=False, na_rep="", sep=sep)
         buffer.seek(0)
@@ -157,6 +163,8 @@ class SharePointClient:
         :param auto_adjust_columns: Whether to auto-adjust column widths for readability.
         :return: True if upload succeeded, False otherwise.
         """
+        if self.is_local:
+            return
         if len(dfs) != len(sheet_names):
             raise ValueError("Number of DataFrames and sheet names must be equal.")
 
@@ -205,6 +213,8 @@ class SharePointClient:
         :param folder_path: Folder path relative to SharePoint root (e.g., 'OC/Customer/2025/07/1234')
         :return: True if created successfully or already exists.
         """
+        if self.is_local:
+            return
         parts_lst = folder_path.strip("/").split("/")
         parent_path = parts_lst[0]
         parts = parts_lst[1:]
@@ -255,6 +265,8 @@ class SharePointClient:
         """
         Saves a delivery note Excel file with special formatting.
         """
+        if self.is_local:
+            return
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False, header=False, sheet_name=sheet_name, engine="openpyxl")
         buffer.seek(0)
@@ -281,7 +293,7 @@ class SharePointClient:
         url = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drive/root:/{file_path}:/workbook/createSession"
         headers = self.headers.copy()
         headers["Content-Type"] = "application/json"
-        body = {"persistChanges": False}
+        body = {"persistChanges": True}
 
         response = requests.post(url, headers=headers, json=body)
 
@@ -315,6 +327,8 @@ class SharePointClient:
                 if cell.row == 1:
                     continue  # Skip header
                 cell.number_format = '0'  # Integer format (no decimals, no scientific)
+
+invoc = SharePointClient()
 
 
 # # Usage

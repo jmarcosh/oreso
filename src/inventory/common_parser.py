@@ -1,16 +1,13 @@
-import re
 import sys
 import os
 import numpy as np
 import pandas as pd
-from openpyxl.utils import get_column_letter
+import streamlit as st
 from datetime import date, datetime
-from openpyxl import load_workbook
 
 from inventory.common_app import create_and_save_br_summary_table, create_and_save_inventory_summary_table
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import SharePointClient
-invoc = SharePointClient()
+from api_integrations.sharepoint_client import invoc
 
 def get_all_csv_files_in_directory(directory_path):
     if not os.path.isdir(directory_path):
@@ -24,9 +21,16 @@ def get_all_csv_files_in_directory(directory_path):
 
 def read_temp_files(temp_files):
     po_dfs = []
-    for po_file in temp_files:
-        po_dfs.append(pd.read_excel(po_file))
-    return po_dfs
+    for temp_file in temp_files:
+        if temp_file.lower().endswith(".xlsx"):
+            po_dfs.append(pd.read_excel(temp_file))
+        elif temp_file.lower().endswith(".csv"):
+            po_dfs.append(pd.read_csv(temp_file, encoding="latin1"))
+        else:
+            st.error(f"Unsupported file type: {temp_file}")
+            st.stop()  # Stop the script immediately
+    po_df = pd.concat(po_dfs)
+    return po_df
 
 
 def read_files(temp_paths, update_from_sharepoint):
@@ -36,11 +40,10 @@ def read_files(temp_paths, update_from_sharepoint):
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
         po_type = 'update'
     else:
-        # if invoc._is_local():
-        #     po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
-        #     temp_paths = get_all_csv_files_in_directory(po_read_path)
-        po_dfs = read_temp_files(temp_paths)
-        po_df = pd.concat(po_dfs)
+        if invoc.is_local():
+            po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
+            temp_paths = get_all_csv_files_in_directory(po_read_path)
+        po_df = read_temp_files(temp_paths)
         po_type = auto_assign_po_type(po_df)
     cols_rename = config[f'{po_type.lower()}_rename']
     po_df = po_df.rename(columns=cols_rename)
@@ -246,16 +249,6 @@ def save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_pa
     checklist_path = f"{files_save_path}/Checklist_{po_nums}.xlsx"
     invoc.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
 
-def autoadjust_column_widths(file_path):
-    wb = load_workbook(file_path)
-    sheet_names = wb.sheetnames
-    for sheet_name in sheet_names:
-        ws = wb[sheet_name]
-        for col_idx, column_cells in enumerate(ws.columns, start=1):
-            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
-            adjusted_width = max_length + 2  # Padding for readability
-            ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
-    wb.save(file_path)
 
 def update_billing_record(po_style, customer, delivery_date, config, txn_key, log_id):
     br_columns = config["br_columns"]

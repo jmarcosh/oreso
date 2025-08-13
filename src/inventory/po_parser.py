@@ -10,8 +10,7 @@ from inventory.process_purchase_orders import run_process_purchase_orders
 from inventory.receive_goods import receive_goods
 
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import SharePointClient
-invoc = SharePointClient()
+from api_integrations.sharepoint_client import invoc
 
 def parse_rfid_series_simple(rfid_str):
     """
@@ -40,7 +39,7 @@ def save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id):
     return files_save_path
 
 def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=None):
-    stop_if_locked_files()
+    # stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
     logs = invoc.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_column = read_files(temp_paths, update_from_sharepoint)
@@ -53,7 +52,7 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
         po[C.DELIVERY_DATE] = delivery_date
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
         files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
-        if customer in ['liverpool', 'suburbia']:
+        if customer in config.get("customers"):
             po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id)
             txn_key = "V"
         else:

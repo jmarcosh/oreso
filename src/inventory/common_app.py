@@ -3,14 +3,13 @@ import sys
 import pandas as pd
 from inventory.varnames import ColNames as C
 
-from api_integrations.sharepoint_client import SharePointClient
-invoc = SharePointClient()
+from api_integrations.sharepoint_client import invoc
 
 
 def record_log(logs, log_id, customer, action, status='started'):
     new_row = {"log_id": [log_id], "customer": [customer], "action": [action], "status": [status]}
-    logs = pd.concat([logs, pd.DataFrame(new_row)], ignore_index=True)
-    invoc.save_csv(logs,"logs/logs.csv")
+    logs_u = pd.concat([logs, pd.DataFrame(new_row)], ignore_index=True)
+    invoc.save_csv(logs_u,"logs/logs.csv")
 
 
 def stop_if_locked_files():
@@ -24,7 +23,7 @@ def stop_if_locked_files():
 def create_and_save_br_summary_table(po_br, config):
     br_summ_indexes = config["br_summ_indexes"]
     br_summ_values = config["br_summ_values"]
-    summ = po_br.groupby(br_summ_indexes).agg(br_summ_values)
+    summ = po_br.groupby(br_summ_indexes).agg(br_summ_values).sort_values(by=C.DELIVERY_DATE)
     invoc.save_excel(summ, 'FACTURACION/SUMMARY.xlsx')
 
 

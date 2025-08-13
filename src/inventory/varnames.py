@@ -55,3 +55,4 @@ class ColNames:
     PCS_PACK = 'PZAS_PACK'
     PRODUCT = 'PRODUCTO'
     SUBTOTAL_COST = 'SUBTOTAL_COSTO'
+    FOB = 'FOB'

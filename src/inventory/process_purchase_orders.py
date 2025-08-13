@@ -6,8 +6,7 @@ import re
 from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
                                          add_nan_cols)
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import SharePointClient
-invoc = SharePointClient()
+from api_integrations.sharepoint_client import invoc
 
 def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
     best_combo = ()
@@ -45,7 +44,8 @@ def assign_box_number(po, customer, config, log_id):
     rfid_series_df = invoc.read_csv(f"config/rfid_{customer.lower()}.csv")
     first_col = rfid_series_df.columns[0]
     rfid_series = rfid_series_df[first_col].tolist()
-    box = rfid_series_df[rfid_series_df[C.LOG_ID].isna()].index[0]
+    start_box = rfid_series_df[rfid_series_df[C.LOG_ID].isna()].index[0]
+    box = start_box
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
         max_vol = combo_s[c] if c < (len(combo_s) - 1) else capacities[0]
@@ -57,7 +57,7 @@ def assign_box_number(po, customer, config, log_id):
             c = 0
             store_prev = store_s
         box_assignment.append(rfid_series[box]) if (len(combo_s) > 0) else box_assignment.append(None)
-    rfid_series_df.loc[box: box + 1, C.LOG_ID] = log_id
+    rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
     invoc.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}.csv")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
     return po
@@ -76,7 +76,9 @@ def add_box_related_columns(po, box_assignment, names, capacities, dimensions):
     po['BOX_CHANGE'] = (po[C.BOX_ID] != po[C.BOX_ID].shift()).astype(int)
     po['BOX_STORE_NUM'] = po.groupby([C.STORE_ID])['BOX_CHANGE'].cumsum()
     po['BOX_VOLUME'] = po.groupby(C.BOX_ID)['ROW_VOLUME'].transform('sum')
-    po[C.BOX_TYPE] = pd.cut(po['BOX_VOLUME'], bins=[0] + capacities[::-1], labels=names[::-1], right=True).astype(str)
+    bins = [x * 1.04 for x in [0] + capacities[::-1]] # account that there's more space in boxes than reported
+    bins[-1] *= 2 # avoid errors because last box is too loaded doue to split
+    po[C.BOX_TYPE] = pd.cut(po['BOX_VOLUME'], bins=bins, labels=names[::-1], right=True).astype(str)
     name_to_dimensions = {n: d for n, d in zip(names, dimensions)}
     po['BOX_DIMENSION'] = [name_to_dimensions.get(x, (0, 0, 0)) for x in po[C.BOX_TYPE]]
     po[['LENGTH', 'WIDTH', 'HEIGHT']] = pd.DataFrame(po['BOX_DIMENSION'].tolist(), index=po.index)
@@ -121,7 +123,7 @@ def create_and_save_delivery_note(po_style, delivery_date, config, po_nums, sect
             dn_structure[line][1] = str(value)
         blank_row = pd.DataFrame([[]])
         dn_columns = config["dn_columns"]
-        dn = po_style.loc[po_style[(C.PO_NUM == po_num)]].groupby(dn_columns[1:5]).agg({
+        dn = po_style.loc[(po_style[C.PO_NUM] == int(po_num))].groupby(dn_columns[1:5]).agg({
             C.DELIVERED: 'sum', C.CUSTOMER_COST: 'mean'
         }).reset_index()[dn_columns]
         dn['SUBTOTAL'] = dn[C.DELIVERED] * dn[C.CUSTOMER_COST]

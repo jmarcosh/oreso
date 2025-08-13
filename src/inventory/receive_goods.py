@@ -1,10 +1,9 @@
 import pandas as pd
 import requests
 
-from api_integrations.sharepoint_client import SharePointClient
+from api_integrations.sharepoint_client import invoc
 from inventory.varnames import ColNames as C
 
-invoc = SharePointClient()
 
 
 
@@ -15,7 +14,7 @@ def receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id):
         original_column_order = inventory.columns.copy()
         inventory.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
         po.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
-        for col in [C.LOG_ID, C.SKU, C.COST, C.WHOLESALE_PRICE, C.RETAIL_PRICE]:
+        for col in [C.LOG_ID, C.SKU, C.COST, C.WHOLESALE_PRICE, C.RETAIL_PRICE, C.BUS_KEY, C.FACTORY, C.PCS_BOX]:
             inventory.loc[po.index, col] = po[col]
         updated_inv = reset_rows_and_columns_order(inventory, original_column_order)
         files_save_path = update_from_sharepoint
@@ -28,12 +27,12 @@ def receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id):
                                 .str.pad(6, side='right', fillchar='0').str[:6]
                                 + po[C.UPC].fillna(0).astype(int).astype(str).str.zfill(6).str[-6:]).astype(int)
         po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
-        po[C.INVENTORY] = po[C.RECEIVED]
-        updated_inv = pd.concat([inventory, po], ignore_index=True)
         season = po.loc[0, C.RD][:3]
         files_save_path = f"RECIBOS/{season}.xlsx"
         update_master_entry_file(files_save_path, po)
-    # po[C.DELIVERED] = - po[C.RECEIVED]
+        po[C.INVENTORY] = po[C.RECEIVED]
+        po[C.SIZE] = [x.rsplit('-', 1)[-1] for x in po[C.STYLE]]
+        updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     txn_key = 'C'
     return po, updated_inv, files_save_path, txn_key
 
