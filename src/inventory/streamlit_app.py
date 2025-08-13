@@ -87,7 +87,7 @@ def save_temp_files(uploaded_files):
     temp_paths = []
     if uploaded_files:
         for file in uploaded_files:
-            ext = file.filename.rsplit('.', 1)[-1].lower()
+            ext = file.name.rsplit('.', 1)[-1].lower()
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
             temp_file.write(file.read())
             temp_file.close()
