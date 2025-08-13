@@ -15,12 +15,12 @@ from openpyxl import load_workbook, Workbook
 class SharePointClient:
     def __init__(self):
         self._local_config_path = "../config_files/secrets.toml"
-        self._is_local = self.is_local()
+        self.is_local = self._is_local()
         self._load_config()
         self._authenticate()
         self._get_site_and_drive_ids()
 
-    def is_local(self):
+    def _is_local(self):
         # Example heuristic: check environment variable or file existence
         base_dir = os.path.dirname(__file__)  # folder of the current .py file
         abs_path = os.path.abspath(os.path.join(base_dir, self._local_config_path))
@@ -30,7 +30,7 @@ class SharePointClient:
 
     def _load_config(self):
         if self.is_local:
-            config = toml.load(self._is_local).get("azure", {})
+            config = toml.load(self.is_local).get("azure", {})
         else:
             config = st.secrets.get("azure", {})
 

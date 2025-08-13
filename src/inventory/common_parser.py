@@ -22,12 +22,13 @@ def get_all_csv_files_in_directory(directory_path):
 def read_temp_files(temp_files):
     po_dfs = []
     for temp_file in temp_files:
-        if temp_file.lower().endswith(".xlsx"):
+        filename = temp_file.lower() if invoc.is_local else temp_file.name.lower()
+        if filename.endswith(".xlsx"):
             po_dfs.append(pd.read_excel(temp_file))
-        elif temp_file.lower().endswith(".csv"):
+        elif filename.endswith(".csv"):
             po_dfs.append(pd.read_csv(temp_file, encoding="latin1"))
         else:
-            st.error(f"Unsupported file type: {temp_file}")
+            st.error(f"Unsupported file type: {filename}")
             st.stop()  # Stop the script immediately
     po_df = pd.concat(po_dfs)
     return po_df
@@ -40,7 +41,7 @@ def read_files(temp_paths, update_from_sharepoint):
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
         po_type = 'update'
     else:
-        if invoc.is_local():
+        if invoc.is_local:
             po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
