@@ -3,6 +3,7 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import re
+import streamlit as st
 from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
                                          add_nan_cols)
 from inventory.varnames import ColNames as C
@@ -105,6 +106,7 @@ def upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_sav
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
+    st.write("aqui")
     techsmart = create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save_path)
     save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_path)
     create_and_save_delivery_note(po_style, delivery_date, config, po_nums, section, files_save_path)
@@ -171,8 +173,9 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
     conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
         [C.STYLE, C.WHOLESALE_PRICE, C.CUSTOMER_COST]].drop_duplicates() #pc = price_conflict
+    st.write("aqui0")
     if not conflicts.empty:
-        print(f"""The following styles have price conflicts:\n{conflicts}""")
+        st.write(f"""The following styles have price conflicts:\n{conflicts}""")
         raise SystemExit("Process stopped due to price conflicts.")
     po = assign_box_number(po, customer, config, log_id)
     po_style = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
