@@ -13,7 +13,7 @@ from api_integrations.sharepoint_client import invoc
 def undo_inventory(recovery_id, config):
     updated_inv = invoc.read_csv(f"INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv", encoding="latin1")
     updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
-    invoc.save_csv(f"INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv") #save with the new date to keep track of changes
+    invoc.save_csv(updated_inv, f'INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv') #save with the new date to keep track of changes
     invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
     create_and_save_inventory_summary_table(updated_inv, config)
 
