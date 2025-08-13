@@ -52,13 +52,15 @@ def read_files(temp_paths, update_from_sharepoint):
         matching_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
         matching_column = auto_assign_matching_column(po_df, matching_cols)
         cols = [matching_column] + [x for x in cols_rename.values() if x not in matching_cols]
+        action = 'parse'
     else:
         matching_column = 'index'
         cols = list(cols_rename.values())
+        action = 'receipt'
     return ((po_df.reset_index()
              .sort_values(by=matching_column)[cols]
              .reset_index(drop=True)),
-            inventory_df, config, po_type, matching_column)
+            inventory_df, config, po_type, matching_column, action)
 
 
 def assign_store_name(po_df, customer):

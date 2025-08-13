@@ -42,8 +42,8 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
     # stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
     logs = invoc.read_csv("logs/logs.csv")
-    po, inventory, config, po_type, matching_column = read_files(temp_paths, update_from_sharepoint)
-    record_log(logs, log_id, po_type, "parse")
+    po, inventory, config, po_type, matching_column, action = read_files(temp_paths, update_from_sharepoint)
+    record_log(logs, log_id, po_type, action, "started")
     if po_type == 'receipt':
         po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id)
     else:
@@ -61,7 +61,7 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
     update_inventory_in_memory(updated_inv, inventory, log_id, config)
     if po_type != 'receipt':
         update_billing_record(po, po_type, delivery_date, config, txn_key, log_id)
-    record_log(logs, log_id, po_type, "parse", "success")
+    record_log(logs, log_id, po_type, action, "success")
     return files_save_path
 
 
