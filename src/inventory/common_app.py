@@ -7,6 +7,7 @@ from api_integrations.sharepoint_client import invoc
 
 
 def record_log(logs, log_id, customer, action, status):
+    #TODO add po_num to logs
     new_row = {"log_id": [log_id], "customer": [customer], "action": [action], "status": [status]}
     logs_u = pd.concat([logs, pd.DataFrame(new_row)], ignore_index=True)
     invoc.save_csv(logs_u,"logs/logs.csv")

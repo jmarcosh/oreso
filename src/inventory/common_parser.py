@@ -37,38 +37,33 @@ def read_temp_files(temp_files):
 def read_files(temp_paths, update_from_sharepoint):
     config = invoc.read_json("config/config.json")
     inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
+    invoc.save_excel(inventory_df, 'INVENTARIO/INVENTARIO.xlsx') # check if locked file
     if update_from_sharepoint:
         po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
-        po_type = 'update'
-    else:
+        action = po_type = 'update'
+        matching_column = 'index'
+        cols = po_df.columns.tolist()
+    else: # uploaded files
         if invoc.is_local:
             po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
         po_type = auto_assign_po_type(po_df)
-    cols_rename = config[f'{po_type.lower()}_rename']
-    po_df = po_df.rename(columns=cols_rename)
-    if po_type != 'receipt':
-        matching_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
-        matching_column = auto_assign_matching_column(po_df, matching_cols)
-        cols = [matching_column] + [x for x in cols_rename.values() if x not in matching_cols]
-        action = 'parse'
-    else:
-        matching_column = 'index'
-        cols = list(cols_rename.values())
-        action = 'receipt'
+        cols_rename = config[f'{po_type.lower()}_rename']
+        po_df = po_df.rename(columns=cols_rename)
+        if po_type in config.get("customers"):
+            matching_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
+            matching_column = auto_assign_matching_column(po_df, matching_cols)
+            cols = [matching_column] + [x for x in cols_rename.values() if x not in matching_cols]
+            action = 'parse'
+        else: # po_type == 'receipt':
+            matching_column = 'index'
+            cols = list(cols_rename.values())
+            action = po_type
     return ((po_df.reset_index()
              .sort_values(by=matching_column)[cols]
              .reset_index(drop=True)),
             inventory_df, config, po_type, matching_column, action)
-
-
-def assign_store_name(po_df, customer):
-    if customer in ['liverpool', 'suburbia']:
-        store_mapping = invoc.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
-        po_df = po_df.merge(store_mapping, on=C.STORE_ID, how='left')
-        return po_df[C.STORE_NAME].fillna("NotFound")
-    return np.zeros(len(po_df))
 
 
 def auto_assign_po_type(df):
@@ -180,13 +175,6 @@ def split_ordered_quantity_by_warehouse_codes(po, column):
     po = po.drop(columns=[C.MISSING, '_is_last'])
     return po
 
-def adjust_quantities_per_row(group):
-    group = group.copy()
-    if len(group) > 1:
-        group.iloc[:-1, group.columns.get_loc(C.ORDERED)] = group[C.DELIVERED].iloc[:-1]
-        group.iloc[-1, group.columns.get_loc(C.ORDERED)] = group[C.DELIVERED].iloc[-1] + group[C.MISSING].iloc[-1]
-    return group
-
 
 def save_df_in_excel_and_keep_other_sheets(df, path, sheet_name="Sheet1"):
     # Write new data, replacing the sheet but keeping others
@@ -225,13 +213,12 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
     ts = po.copy()
-    ts = ts[ts[C.DELIVERED] > 0].reset_index(drop=True)
-    ts[C.STORE_NAME] = assign_store_name(ts, customer)
+    ts = ts[ts[C.DELIVERED] != 0].reset_index(drop=True)
     ts = ts.rename(columns=ts_rename)
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
-    ts['Cliente final'] = customer.title()
+    ts['Cliente final'] = customer
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))

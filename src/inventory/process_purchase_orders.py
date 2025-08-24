@@ -168,6 +168,13 @@ def create_po_summary_by_style(po, config):
     )
     return po_gb
 
+def assign_store_name(po_df, customer):
+    if customer in ['liverpool', 'suburbia']:
+        store_mapping = invoc.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
+        po_df = po_df.merge(store_mapping, on=C.STORE_ID, how='left')
+        return po_df[C.STORE_NAME].fillna("NotFound")
+    return np.zeros(len(po_df))
+
 def run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id):
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
     conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
@@ -177,7 +184,8 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
         st.table(conflicts)
         st.stop()
     po = assign_box_number(po, customer, config, log_id)
-    po_style = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
+    po[C.STORE_NAME] = assign_store_name(po, customer)
+    po_style = upload_po_files_to_sharepoint(po, customer.title(), delivery_date, config, files_save_path)
     invoc.save_json(config, "config/config.json")
     return po_style
 

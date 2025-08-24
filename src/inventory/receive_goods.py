@@ -2,12 +2,13 @@ import pandas as pd
 import requests
 
 from api_integrations.sharepoint_client import invoc
+from inventory.common_parser import create_and_save_techsmart_txt_file
 from inventory.varnames import ColNames as C
 
 
 
 
-def receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id):
+def receive_goods(po, inventory, config, delivery_date, update_from_sharepoint, log_id):
     po[C.LOG_ID] = log_id
     if update_from_sharepoint:
         inventory["_row_order"] = range(len(inventory))
@@ -27,11 +28,18 @@ def receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id):
                                 .str.pad(6, side='right', fillchar='0').str[:6]
                                 + po[C.UPC].fillna(0).astype(int).astype(str).str.zfill(6).str[-6:]).astype(int)
         po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
-        season = po.loc[0, C.RD][:3]
-        files_save_path = f"RECIBOS/{season}.xlsx"
-        update_master_entry_file(files_save_path, po)
+        rd = po.loc[0, C.RD]
+        update_master_entry_file(po, rd[:3])
+        files_save_path = f"OC/Recibos/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(rd)}"
+        invoc.create_folder_path(files_save_path)
         po[C.INVENTORY] = po[C.RECEIVED]
         po[C.SIZE] = [x.rsplit('-', 1)[-1] for x in po[C.STYLE]]
+        po['BOX_STORE_NUM'] = 1
+        po[C.DELIVERED] = - po[C.RECEIVED]
+        po[C.PO_NUM] = po[C.RD]
+        customer_mapping = config.get("bus_key_to_customer")
+        customer = [customer_mapping.get(x.split("_", 1)[0], x) for x, y in zip(po[C.BUS_KEY], po[C.RECEIVED]) if y > 0]
+        techsmart = create_and_save_techsmart_txt_file(po, customer, config, rd, files_save_path)
         updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     txn_key = 'C'
     return po, updated_inv, files_save_path, txn_key
@@ -45,7 +53,7 @@ def reset_rows_and_columns_order(inventory, original_column_order):
     return updated_inv
 
 
-def update_master_entry_file(files_save_path, po):
+def update_master_entry_file(po, rd):
     """
     Updates a master Excel file in SharePoint by appending new purchase order data.
 
@@ -56,7 +64,7 @@ def update_master_entry_file(files_save_path, po):
 
     try:
         # Try to read the existing master file from SharePoint
-        season_po = invoc.read_excel(files_save_path)
+        season_po = invoc.read_excel(f"CATALOGO/{rd}.xlsx")
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             # File does not exist yet — create a new DataFrame
@@ -70,4 +78,4 @@ def update_master_entry_file(files_save_path, po):
     season_po = pd.concat([season_po, po], ignore_index=True).drop_duplicates(subset=[C.RD, C.MOVEX_PO, C.UPC],
                                                                               keep="last")
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
-    invoc.save_excel(season_po, files_save_path)
+    invoc.save_excel(season_po, f"CATALOGO/{rd}.xlsx")

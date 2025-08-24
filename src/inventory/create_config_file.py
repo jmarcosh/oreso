@@ -1,6 +1,10 @@
 
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import invoc
+
+data0 = invoc.read_json("config/config.json")
+dn_num = int(data0.get("dn_structure")[0][1])
+
 data = {
     "liverpool_rename": {
         'Orden Compra': C.PO_NUM,
@@ -82,8 +86,10 @@ data = {
         "SELLO 1 DEL HU", "SELLO 2 DEL HU", "TRANSPORTE"
     ],
 
-    "customers": ["liverpool", "suburbia"],
+    "customers": ["liverpool", "suburbia", "interno"],
     "rfid_customers": ["liverpool", "suburbia"],
+    "bus_key_to_customer": {"lvp": "Liverpool",
+                            "sub": "Suburbia"},
 
 
     "cartons": [
@@ -133,7 +139,7 @@ data = {
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": [
-        ("NOTA DE REMISION", 3017),
+        ("NOTA DE REMISION", dn_num + 1),
         ("Cliente:", "Distribuidora Liverpool SA de CV"),
         ("RFC:", "DLI931201MI9"),
         ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),

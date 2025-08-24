@@ -1,11 +1,11 @@
 import argparse
 from datetime import datetime
-
+import streamlit as st
 
 from inventory.common_app import record_log, stop_if_locked_files
 from inventory.common_parser import read_files, allocate_stock, \
     assign_warehouse_codes_from_column_and_update_inventory, update_billing_record, update_inventory_in_memory
-from inventory.manual_adjustments import run_manual_adjustments
+from inventory.internal_orders import run_internal_orders
 from inventory.process_purchase_orders import run_process_purchase_orders
 from inventory.receive_goods import receive_goods
 
@@ -44,23 +44,26 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
     logs = invoc.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_column, action = read_files(temp_paths, update_from_sharepoint)
     record_log(logs, log_id, po_type, action, "started")
-    if po_type == 'receipt':
-        po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, delivery_date, update_from_sharepoint, log_id)
-    else:
+    if po_type in config.get("customers"):
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_column)
         po[C.DELIVERY_DATE] = delivery_date
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
         files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
-        if customer in config.get("customers"):
+        if customer in config.get("customers_rfid"):
             po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id)
             txn_key = "V"
-        else:
+        else: # customer == 'interno':
+            run_internal_orders(po, config, customer, files_save_path)
             txn_key = po.loc[0, C.PO_NUM].rsplit("_", 1)[-1][0]
-            run_manual_adjustments(po, config, customer, files_save_path)
-    update_inventory_in_memory(updated_inv, inventory, log_id, config)
-    if po_type != 'receipt':
+            if not txn_key.isalpha():
+                st.write("Internal orders should end with _[KEY]")
+                st.stop()
         update_billing_record(po, po_type, delivery_date, config, txn_key, log_id)
+    else: # po_type == receipt
+        po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, config, delivery_date,
+                                                                      update_from_sharepoint, log_id)
+    update_inventory_in_memory(updated_inv, inventory, log_id, config)
     record_log(logs, log_id, po_type, action, "success")
     return files_save_path
 
