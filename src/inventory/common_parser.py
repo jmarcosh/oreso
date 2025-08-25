@@ -39,7 +39,7 @@ def read_files(temp_paths, update_from_sharepoint):
     inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
     invoc.save_excel(inventory_df, 'INVENTARIO/INVENTARIO.xlsx') # check if locked file
     if update_from_sharepoint:
-        po_df = invoc.read_excel(f'RECIBOS/{update_from_sharepoint}.xlsx')
+        po_df = invoc.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
         action = po_type = 'update'
         matching_column = 'index'
         cols = po_df.columns.tolist()
