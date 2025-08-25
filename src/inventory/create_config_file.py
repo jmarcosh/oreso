@@ -87,7 +87,7 @@ data = {
     ],
 
     "customers": ["liverpool", "suburbia", "interno"],
-    "rfid_customers": ["liverpool", "suburbia"],
+    "customers_rfid": ["liverpool", "suburbia"],
     "bus_key_to_customer": {"lvp": "Liverpool",
                             "sub": "Suburbia"},
 
