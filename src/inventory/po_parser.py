@@ -70,8 +70,8 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
 
 
 if __name__ == '__main__':
-    DELIVERY_DATE = "08/28/2025"
-    files_path = run_po_parser(DELIVERY_DATE) #, update_inv_values="B25"
+    DELIVERY_DATE = "09/08/2025"
+    files_path = run_po_parser(DELIVERY_DATE) #, update_from_sharepoint="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
     # parser.add_argument("--date", type=str, required=True, help="Delivery date m/d/Y (e.g., '8/16/2025')")

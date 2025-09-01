@@ -94,7 +94,7 @@ data = {
 
     "cartons": [
         {"name": "RM-51", "capacity": 23760, "cost": 24.46, "dimensions": (43, 33, 22)},
-        {"name": "RM-N", "capacity": 20196, "cost": 21.75, "dimensions": (53, 22, 22)},
+        {"name": "TECLADO", "capacity": 20196, "cost": 24.45, "dimensions": (53, 22, 22)},
         {"name": "RM-32", "capacity": 17820, "cost": 17.25, "dimensions": (29, 29, 22)},
         {"name": "RM-31", "capacity": 7920, "cost": 11.5, "dimensions": (30, 21, 14)},
     ],
@@ -120,7 +120,7 @@ data = {
     "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
 
-    "inventory_summ_indexes": [C.STYLE, C.UPC, C.BRAND],
+    "inventory_summ_indexes": [C.STYLE, C.UPC, C.SKU, C.BRAND],
 
     "br_columns": [
         C.DELIVERY_DATE, C.KEY, C.CUSTOMER,
@@ -138,19 +138,33 @@ data = {
 
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
-    "dn_structure": [
-        ("NOTA DE REMISION", dn_num + 1),
-        ("Cliente:", "Distribuidora Liverpool SA de CV"),
-        ("RFC:", "DLI931201MI9"),
-        ("Dirección:", "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109"),
-        ("Proveedor:", "Grupo Oreso SA de CV"),
-        ("RFC:", "GOR120208K23"),
-        ("Dirección:", "Monte Elbruz N. 124 piso 2 desp 212 Col. Palmitas C.P.  11560 Del. Miguel Hidalgo"),
-        ("Número de proveedor:", "134494"),
-        ("Orden de compra:", ""),
-        ("Departamento", ""),
-        ("Fecha orden de compra:", "")
-    ],
+    "dn_structure": {
+    "NOTA DE REMISION": dn_num + 1,
+    "Cliente:": "",
+    "RFC:": "GOR120208K23",
+    "Dirección:": "Monte Elbruz N. 124 piso 2 desp 212 Col. Palmitas C.P.  11560 Del. Miguel Hidalgo",
+    "Proveedor:": "Grupo Oreso SA de CV",
+    "Número de proveedor:": "134494",
+    "Orden de compra:": "",
+    "Departamento": "",
+    "Fecha orden de compra:": ""
+    },
+
+    "dn_customers": {
+        "liverpool": {
+            "Cliente:": "Distribuidora Liverpool SA de CV",
+            "RFC:": "DLI931201MI9",
+            "Dirección:": "Mario Pani 200 Col. Santa Fé Del. Cuajimalpa de Morelos CP 05109",
+        },
+        "suburbia": {
+            "Cliente:": "Suburbia S de RL de CV",
+            "RFC:": "SUB910603SB3",
+            "Dirección:": "Av. Prolongación Vasco de Quiroga No. 4800 Torre 2 Piso 3 Col. Santa Fe Del. Cuajimalpa de Morelos",
+        }
+    },
+
+    "dn_discounts": {"liverpool": 0.045,
+                     "suburbia": 0},
 
     "dn_columns": [
         C.DELIVERED, C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.CUSTOMER_COST

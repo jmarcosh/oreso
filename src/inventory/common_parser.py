@@ -60,6 +60,8 @@ def read_files(temp_paths, update_from_sharepoint):
             matching_column = 'index'
             cols = list(cols_rename.values())
             action = po_type
+    for df in [po_df, inventory_df]:
+        convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     return ((po_df.reset_index()
              .sort_values(by=matching_column)[cols]
              .reset_index(drop=True)),
@@ -103,14 +105,13 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     po = split_ordered_quantity_by_warehouse_codes(po, column)
     updated_inv_lst = updated_inv + split_inventory[it+1:]
     updated_inv = concat_inv_lst(updated_inv_lst)
-    for df in [po, updated_inv]:
-        convert_cols_to_int(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU])
     return po.sort_values([C.STORE_ID, column]).reset_index(drop=True), updated_inv
 
-def convert_cols_to_int(df, cols):
+def convert_numeric_id_cols_to_text(df, cols):
     for col in cols:
         if col in df.columns:
-            df[col] = df[col].astype(int)
+            df[col] = (pd.to_numeric(df[col], errors='coerce').fillna(df[col].fillna(0))
+                       .astype(str).replace('\..*$', '', regex=True))
 
 def concat_inv_lst(dfs):
     df = pd.concat(dfs)
@@ -218,12 +219,13 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
-    ts['Cliente final'] = customer
+    ts['Cliente final'] = customer.title()
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
     # po[(po[STORE_ID] == 688) & (po[SKU] == 1035942641)]
     invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
+    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.csv")
     return ts[ts_columns_csv]
 
 def add_nan_cols(df, cols):
@@ -268,6 +270,11 @@ def update_inventory_in_memory(updated_inv, inventory, log_id, config):
     invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
     create_and_save_inventory_summary_table(updated_inv, config)
 
+
+def append_log_id(lst, log_id):
+        if not isinstance(lst, list):
+            lst = lst.strip("[]").split(",")
+        return lst.append(log_id)
 
 
 

@@ -108,20 +108,24 @@ def upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_sav
     po_store = create_po_summary_by_store(po, config)
     techsmart = create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save_path)
     save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_path)
-    create_and_save_delivery_note(po_style, delivery_date, config, po_nums, section, files_save_path)
+    create_and_save_delivery_note(po_style, customer, delivery_date, config, po_nums, section, files_save_path)
     create_and_save_asn_file(po, config, po_nums, files_save_path)
     return po_style
 
 
 
-def create_and_save_delivery_note(po_style, delivery_date, config, po_nums, section, files_save_path):
+def create_and_save_delivery_note(po_style, customer, delivery_date, config, po_nums, section, files_save_path):
     po_nums_lst = po_nums.rsplit('_')
+    dn_structure = config["dn_structure"]
+    customer_map = config["dn_customers"].get(customer, {})
+    dn_discounts =config["dn_discounts"].get(customer, {})
+    dn_structure.update(customer_map)
     for po_num in po_nums_lst:
-        dn_structure = config["dn_structure"]
-        delivery_num = int(dn_structure[0][1]) + 1
-        dn_structure[0][1] = delivery_num
-        for line, value in zip([0, 8, 9, 10], [delivery_num, po_num, section, delivery_date]):
-            dn_structure[line][1] = str(value)
+        delivery_num = int(dn_structure["NOTA DE REMISION"]) + 1
+        for key, value in zip(["NOTA DE REMISION", "Orden de compra:", "Departamento", "Fecha orden de compra:"],
+                              [delivery_num, po_num, section, delivery_date]):
+            dn_structure[key] = str(value)
+        dn_structure_df = [[k, v] for k, v in dn_structure.items()]
         blank_row = pd.DataFrame([[]])
         dn_columns = config["dn_columns"]
         dn = po_style.loc[(po_style[C.PO_NUM] == int(po_num))].groupby(dn_columns[1:5]).agg({
@@ -129,13 +133,13 @@ def create_and_save_delivery_note(po_style, delivery_date, config, po_nums, sect
         }).reset_index()[dn_columns]
         dn['SUBTOTAL'] = dn[C.DELIVERED] * dn[C.CUSTOMER_COST]
         subtotal = dn['SUBTOTAL'].sum()
-        discount = subtotal * .045
+        discount = subtotal * dn_discounts
         subtotal_2 = subtotal - discount
         vat = subtotal_2 * .16
         total = subtotal_2 + vat
-        dn_totals = pd.DataFrame({5: ["Subtotal", "Descuento 4.5%", "SubTotal Menos", "IVA", "Total"],
+        dn_totals = pd.DataFrame({5: ["Subtotal", f"Descuento {dn_discounts:.2%}", "SubTotal Menos", "IVA", "Total"],
                                   6: [subtotal, discount, subtotal_2, vat, total], })
-        delivery_note = pd.concat([pd.DataFrame(dn_structure), blank_row, dn.T.reset_index().T, dn_totals],
+        delivery_note = pd.concat([pd.DataFrame(dn_structure_df), blank_row, dn.T.reset_index().T, dn_totals],
                                   ignore_index=True)
         dn_file_path = f"{files_save_path}/Nota_Remision_{po_num}_{delivery_num}.xlsx"
         invoc.save_delivery_note_excel(delivery_note, dn_file_path)
@@ -149,6 +153,7 @@ def create_and_save_asn_file(po, config, po_nums, files_save_path):
     asn['CENTRO/ALMACEN DESTINO'] = [f"{c:04}" for c in asn['CENTRO/ALMACEN DESTINO']]
     asn['TRANSPORTE'] = 1
     asn[C.CUSTOMER_UPC] = np.nan
+    asn[C.SKU] = asn[C.SKU].astype(int)
     add_nan_cols(asn, asn_columns)
     invoc.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_nums}.xlsx")
 
@@ -185,7 +190,7 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
         st.stop()
     po = assign_box_number(po, customer, config, log_id)
     po[C.STORE_NAME] = assign_store_name(po, customer)
-    po_style = upload_po_files_to_sharepoint(po, customer.title(), delivery_date, config, files_save_path)
+    po_style = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
     invoc.save_json(config, "config/config.json")
     return po_style
 

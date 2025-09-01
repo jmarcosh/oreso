@@ -9,40 +9,51 @@ from inventory.varnames import ColNames as C
 
 
 def receive_goods(po, inventory, config, delivery_date, update_from_sharepoint, log_id):
-    po[C.LOG_ID] = log_id
     if update_from_sharepoint:
-        inventory["_row_order"] = range(len(inventory))
+        # inventory["_row_order"] = range(len(inventory))
         original_column_order = inventory.columns.copy()
         inventory.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
         po.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
-        for col in [C.LOG_ID, C.SKU, C.COST, C.WHOLESALE_PRICE, C.RETAIL_PRICE, C.BUS_KEY, C.FACTORY, C.PCS_BOX]:
-            inventory.loc[po.index, col] = po[col]
-        updated_inv = reset_rows_and_columns_order(inventory, original_column_order)
+        cols = inventory.columns.intersection(po.columns).difference([C.LOG_ID])
+        common_index = inventory.index.intersection(po.index)
+        mask = (inventory.loc[common_index, cols] != po.loc[common_index, cols]).any(axis=1)
+        changes_index = common_index[mask]
+        updated_inv = inventory.copy()
+        updated_inv.update(po[cols])
+        updated_inv.loc[changes_index, C.LOG_ID] = log_id
+        updated_inv = updated_inv.reset_index()[original_column_order]
+        # updated_inv = reset_rows_and_columns_order(updated_inv, original_column_order)
         files_save_path = update_from_sharepoint
     else:
+        po[C.LOG_ID] = log_id
         po = po.loc[~po[C.RD].isna()].reset_index(drop=True)
         po[C.WAREHOUSE_CODE] = (po[C.MOVEX_PO]
                                 .fillna(0)
                                 .astype(str)
                                 .str.replace(r"\D", "", regex=True)
                                 .str.pad(6, side='right', fillchar='0').str[:6]
-                                + po[C.UPC].fillna(0).astype(int).astype(str).str.zfill(6).str[-6:]).astype(int)
+                                + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
         po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
         rd = po.loc[0, C.RD]
         update_master_entry_file(po, rd[:3])
         files_save_path = f"OC/Recibos/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(rd)}"
         invoc.create_folder_path(files_save_path)
-        po[C.INVENTORY] = po[C.RECEIVED]
-        po[C.SIZE] = [x.rsplit('-', 1)[-1] for x in po[C.STYLE]]
-        po['BOX_STORE_NUM'] = 1
-        po[C.DELIVERED] = - po[C.RECEIVED]
-        po[C.PO_NUM] = po[C.RD]
+        po = add_inventory_cols(po)
         customer_mapping = config.get("bus_key_to_customer")
         customer = [customer_mapping.get(x.split("_", 1)[0], x) for x, y in zip(po[C.BUS_KEY], po[C.RECEIVED]) if y > 0]
         techsmart = create_and_save_techsmart_txt_file(po, customer, config, rd, files_save_path)
         updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     txn_key = 'C'
     return po, updated_inv, files_save_path, txn_key
+
+
+def add_inventory_cols(po):
+    po[C.INVENTORY] = po[C.RECEIVED]
+    po[C.SIZE] = [x.rsplit('-', 1)[-1] for x in po[C.STYLE]]
+    po['BOX_STORE_NUM'] = 1
+    po[C.DELIVERED] = - po[C.RECEIVED]
+    po[C.PO_NUM] = po[C.RD]
+    return po
 
 
 def reset_rows_and_columns_order(inventory, original_column_order):
