@@ -10,10 +10,10 @@ from api_integrations.sharepoint_client import SharePointClient
 
 
 
-def undo_inventory(sp, recovery_id, config):
+def undo_inventory(sp, recovery_id, log_id, config):
     updated_inv = sp.read_csv(f"INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv", encoding="latin1")
     updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
-    sp.save_csv(updated_inv, f'INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv') #save with the new date to keep track of changes
+    sp.save_csv(updated_inv, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv') #save with the new date to keep track of changes
     sp.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
     create_and_save_inventory_summary_table(sp, updated_inv, config)
 
@@ -49,7 +49,7 @@ def undo_inventory_update(recovery_id=None):
     config = sp.read_json("config/config.json")
 
     undo_rfid(sp, recovery_id, config)
-    undo_inventory(sp, recovery_id, config)
+    undo_inventory(sp, recovery_id, log_id, config)
     undo_records(sp, recovery_id, config)
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
     return logs.loc[logs['log_id'] >= recovery_id, ['log_id', 'action']]
