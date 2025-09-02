@@ -1,8 +1,9 @@
 
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import invoc
+from api_integrations.sharepoint_client import SharePointClient
 
-data0 = invoc.read_json("config/config.json")
+sp = SharePointClient()
+data0 = sp.read_json("config/config.json")
 dn_num = int(data0.get("dn_structure")[0][1])
 
 data = {
@@ -194,6 +195,6 @@ data = {
 
 
 
-invoc.save_json(data, "config/config.json")
+sp.save_json(data, "config/config.json")
 # with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:
 #     json.dump(data, f, indent=2)

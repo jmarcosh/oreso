@@ -7,8 +7,10 @@ import pandas as pd
 import io
 import toml
 import streamlit as st
-from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook, Workbook
+from openpyxl.utils import get_column_letter
+from datetime import datetime, timedelta, timezone
+
 
 
 
@@ -49,6 +51,7 @@ class SharePointClient:
         scopes = ["https://graph.microsoft.com/.default"]
         result = app.acquire_token_for_client(scopes=scopes)
         self.access_token = result['access_token']
+        self.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=result["expires_in"])
         self.headers = {"Authorization": f"Bearer {self.access_token}"}
 
     def _get_site_and_drive_ids(self):
@@ -68,7 +71,7 @@ class SharePointClient:
         return df
 
     def save_excel(self, df: pd.DataFrame, file_path: str, sheet_name: str = "Sheet1", header: bool = True):
-        if self.is_local:
+        if self.is_local and "TEST" not in file_path:
             return
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False, na_rep="", header=header, sheet_name=sheet_name, engine="openpyxl")
@@ -328,7 +331,6 @@ class SharePointClient:
                     continue  # Skip header
                 cell.number_format = '0'  # Integer format (no decimals, no scientific)
 
-invoc = SharePointClient()
 
 
 # # Usage

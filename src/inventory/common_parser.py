@@ -7,7 +7,6 @@ from datetime import date, datetime
 
 from inventory.common_app import create_and_save_br_summary_table, create_and_save_inventory_summary_table
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import invoc
 
 def get_all_csv_files_in_directory(directory_path):
     if not os.path.isdir(directory_path):
@@ -34,17 +33,17 @@ def read_temp_files(temp_files):
     return po_df
 
 
-def read_files(temp_paths, update_from_sharepoint):
-    config = invoc.read_json("config/config.json")
-    inventory_df = invoc.read_excel('INVENTARIO/INVENTARIO.xlsx')
-    invoc.save_excel(inventory_df, 'INVENTARIO/INVENTARIO.xlsx') # check if locked file
+def read_files(sp, temp_paths, update_from_sharepoint):
+    config = sp.read_json("config/config.json")
+    inventory_df = sp.read_excel('INVENTARIO/INVENTARIO.xlsx')
+    sp.save_excel(inventory_df, 'INVENTARIO/INVENTARIO.xlsx') # check if locked file
     if update_from_sharepoint:
-        po_df = invoc.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
+        po_df = sp.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
         action = po_type = 'update'
         matching_column = 'index'
         cols = po_df.columns.tolist()
     else: # uploaded files
-        if invoc.is_local:
+        if sp.is_local:
             po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
@@ -209,7 +208,7 @@ def allocate_stock(po, inventory, column):
         delivered.append(delivered_sku)
     return np.concatenate(delivered)
 
-def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save_path):
+def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_save_path):
     ts_rename = config["ts_rename"]
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
@@ -224,8 +223,8 @@ def create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
     # po[(po[STORE_ID] == 688) & (po[SKU] == 1035942641)]
-    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
-    invoc.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.csv")
+    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
+    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.csv")
     return ts[ts_columns_csv]
 
 def add_nan_cols(df, cols):
@@ -233,18 +232,18 @@ def add_nan_cols(df, cols):
         if col not in df.columns:
             df[col] = np.nan
 
-def save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_path):
+def save_checklist(sp, po_style, po_store, techsmart, config, po_nums, files_save_path):
     cols = config['checklist_columns']
     checklist = po_style[cols]
     dfs = [checklist, po_store, techsmart]
     sheet_names = ["CHECKLIST", "TIENDA", "TECHSMART"]
     checklist_path = f"{files_save_path}/Checklist_{po_nums}.xlsx"
-    invoc.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
+    sp.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
 
 
-def update_billing_record(po_style, customer, delivery_date, config, txn_key, log_id):
+def update_billing_record(sp, po_style, customer, delivery_date, config, txn_key, log_id):
     br_columns = config["br_columns"]
-    br = invoc.read_excel('FACTURACION/FACTURACION.xlsx')
+    br = sp.read_excel('FACTURACION/FACTURACION.xlsx')
     po_br = po_style.copy()
     po_br[C.DELIVERY_DATE] = datetime.strptime(delivery_date, "%m/%d/%Y")
     po_br[C.KEY] = txn_key[0] if txn_key else np.nan
@@ -259,16 +258,16 @@ def update_billing_record(po_style, customer, delivery_date, config, txn_key, lo
     po_br[C.LOG_ID] = log_id
     bru = pd.concat([br, po_br], ignore_index=True)[br_columns]
     bru[C.DELIVERY_DATE] = pd.to_datetime(bru[C.DELIVERY_DATE]).dt.date
-    invoc.save_excel(bru, 'FACTURACION/FACTURACION.xlsx')
-    create_and_save_br_summary_table(bru, config)
+    sp.save_excel(bru, 'FACTURACION/FACTURACION.xlsx')
+    create_and_save_br_summary_table(sp, bru, config)
 
-def update_inventory_in_memory(updated_inv, inventory, log_id, config):
+def update_inventory_in_memory(sp, updated_inv, inventory, log_id, config):
     updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
     # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
     #     updated_inv[col] = updated_inv[col].astype(int)
-    invoc.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
-    invoc.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
-    create_and_save_inventory_summary_table(updated_inv, config)
+    sp.save_excel(updated_inv, 'INVENTARIO/INVENTARIO.xlsx')
+    sp.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
+    create_and_save_inventory_summary_table(sp, updated_inv, config)
 
 
 def append_log_id(lst, log_id):

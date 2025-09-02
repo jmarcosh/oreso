@@ -10,7 +10,7 @@ from inventory.process_purchase_orders import run_process_purchase_orders
 from inventory.receive_goods import receive_goods
 
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import invoc
+from api_integrations.sharepoint_client import SharePointClient
 
 def parse_rfid_series_simple(rfid_str):
     """
@@ -27,44 +27,46 @@ def parse_rfid_series_simple(rfid_str):
         raise argparse.ArgumentTypeError(f"Invalid RFID_SERIES format: {e}")
 
 
-def save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id):
+def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, log_id):
     po_nums = po[C.PO_NUM].unique()
     po_save_path = f"OC/RAW/{customer.title()}"
-    invoc.create_folder_path(po_save_path)
+    sp.create_folder_path(po_save_path)
     for po_num in po_nums:
-        invoc.save_csv(po[po[C.PO_NUM] == po_num], f"{po_save_path}/{po_num}.csv")
+        sp.save_csv(po[po[C.PO_NUM] == po_num], f"{po_save_path}/{po_num}.csv")
     po_num = "_".join(map(str, po_nums))
     files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
-    invoc.create_folder_path(files_save_path)
+    sp.create_folder_path(files_save_path)
     return files_save_path
 
 def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=None):
     # stop_if_locked_files()
     log_id = datetime.today().strftime('%Y%m%d%H%M%S')
-    logs = invoc.read_csv("logs/logs.csv")
-    po, inventory, config, po_type, matching_column, action = read_files(temp_paths, update_from_sharepoint)
-    record_log(logs, log_id, po_type, action, "started")
+    sp = SharePointClient()
+    logs = sp.read_csv("logs/logs.csv")
+    po, inventory, config, po_type, matching_column, action = read_files(sp, temp_paths, update_from_sharepoint)
+    record_log(sp, logs, log_id, po_type, action, "started")
     if po_type in config.get("customers"):
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_column)
         po[C.DELIVERY_DATE] = delivery_date
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
-        files_save_path = save_raw_po_and_create_file_paths(customer, delivery_date, po, log_id)
+        files_save_path = save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, log_id)
         if customer in config.get("customers_rfid"):
-            po = run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id)
+            po = run_process_purchase_orders(sp, po, config, customer, delivery_date, files_save_path, log_id)
             txn_key = "V"
         else: # customer == 'interno':
-            run_internal_orders(po, config, customer, files_save_path)
+            run_internal_orders(sp, po, config, customer, files_save_path)
             txn_key = po.loc[0, C.PO_NUM].rsplit("_", 1)[-1][0]
             if not txn_key.isalpha():
                 st.write("Internal orders should end with _[KEY]")
                 st.stop()
-        update_billing_record(po, po_type, delivery_date, config, txn_key, log_id)
+        update_billing_record(sp, po, po_type, delivery_date, config, txn_key, log_id)
     else: # po_type == receipt
-        po, updated_inv, files_save_path, txn_key = receive_goods(po, inventory, config, delivery_date,
+        po, updated_inv, files_save_path, txn_key = receive_goods(sp, po, inventory, config, delivery_date,
                                                                       update_from_sharepoint, log_id)
-    update_inventory_in_memory(updated_inv, inventory, log_id, config)
-    record_log(logs, log_id, po_type, action, "success")
+    update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
+    record_log(sp, logs, log_id, po_type, action, "success",
+               files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1])
     return files_save_path
 
 

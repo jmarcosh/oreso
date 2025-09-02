@@ -3,10 +3,10 @@ from inventory.common_parser import create_and_save_techsmart_txt_file, save_che
 
 
 
-def run_internal_orders(po, config, customer, files_save_path):
+def run_internal_orders(sp, po, config, customer, files_save_path):
     po['Caja inicial'] = 1
     po_num = files_save_path.rsplit('/', 1)[-1]
-    techsmart = create_and_save_techsmart_txt_file(po, customer, config, po_num, files_save_path)
-    save_checklist(po, None, techsmart, config, po_num, files_save_path)
+    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, po_num, files_save_path)
+    save_checklist(sp, po, None, techsmart, config, po_num, files_save_path)
 
 

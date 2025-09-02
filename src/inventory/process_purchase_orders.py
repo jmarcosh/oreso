@@ -7,7 +7,6 @@ import streamlit as st
 from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
                                          add_nan_cols)
 from inventory.varnames import ColNames as C
-from api_integrations.sharepoint_client import invoc
 
 def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
     best_combo = ()
@@ -28,7 +27,7 @@ def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
                 best_combo = tuple(capacities[i] for i in range(len(combo)) for _ in range(combo[i]))
     return best_combo
 
-def assign_box_number(po, customer, config, log_id):
+def assign_box_number(sp, po, customer, config, log_id):
     cartons = config['cartons']
     names, capacities, costs, dimensions = get_cartons_info(cartons)
     po = assign_box_combos_per_store(po, capacities, costs)
@@ -42,7 +41,7 @@ def assign_box_number(po, customer, config, log_id):
     store_prev = stores[0]
     c = 0
     # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
-    rfid_series_df = invoc.read_csv(f"config/rfid_{customer.lower()}.csv")
+    rfid_series_df = sp.read_csv(f"config/rfid_{customer.lower()}.csv")
     first_col = rfid_series_df.columns[0]
     rfid_series = rfid_series_df[first_col].tolist()
     start_box = rfid_series_df[rfid_series_df[C.LOG_ID].isna()].index[0]
@@ -59,7 +58,7 @@ def assign_box_number(po, customer, config, log_id):
             store_prev = store_s
         box_assignment.append(rfid_series[box]) if (len(combo_s) > 0) else box_assignment.append(None)
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
-    invoc.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}.csv")
+    sp.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}.csv")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
     return po
 
@@ -101,20 +100,20 @@ def create_po_summary_by_store(po, config):
     po_gb = po.groupby(config['store_indexes'])[C.DELIVERED].sum().reset_index()
     return po_gb
 
-def upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path):
+def upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files_save_path):
     po_nums = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
-    techsmart = create_and_save_techsmart_txt_file(po, customer, config, po_nums, files_save_path)
-    save_checklist(po_style, po_store, techsmart, config, po_nums, files_save_path)
-    create_and_save_delivery_note(po_style, customer, delivery_date, config, po_nums, section, files_save_path)
-    create_and_save_asn_file(po, config, po_nums, files_save_path)
+    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_save_path)
+    save_checklist(sp, po_style, po_store, techsmart, config, po_nums, files_save_path)
+    create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, po_nums, section, files_save_path)
+    create_and_save_asn_file(sp, po, config, po_nums, files_save_path)
     return po_style
 
 
 
-def create_and_save_delivery_note(po_style, customer, delivery_date, config, po_nums, section, files_save_path):
+def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, po_nums, section, files_save_path):
     po_nums_lst = po_nums.rsplit('_')
     dn_structure = config["dn_structure"]
     customer_map = config["dn_customers"].get(customer, {})
@@ -142,9 +141,9 @@ def create_and_save_delivery_note(po_style, customer, delivery_date, config, po_
         delivery_note = pd.concat([pd.DataFrame(dn_structure_df), blank_row, dn.T.reset_index().T, dn_totals],
                                   ignore_index=True)
         dn_file_path = f"{files_save_path}/Nota_Remision_{po_num}_{delivery_num}.xlsx"
-        invoc.save_delivery_note_excel(delivery_note, dn_file_path)
+        sp.save_delivery_note_excel(delivery_note, dn_file_path)
 
-def create_and_save_asn_file(po, config, po_nums, files_save_path):
+def create_and_save_asn_file(sp, po, config, po_nums, files_save_path):
     asn_rename = config["asn_rename"]
     asn_columns = config["asn_columns"]
     asn = po.copy()
@@ -155,7 +154,7 @@ def create_and_save_asn_file(po, config, po_nums, files_save_path):
     asn[C.CUSTOMER_UPC] = np.nan
     asn[C.SKU] = asn[C.SKU].astype(int)
     add_nan_cols(asn, asn_columns)
-    invoc.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_nums}.xlsx")
+    sp.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_nums}.xlsx")
 
 def sort_rd(rd):
     match = re.match(r'([a-zA-Z])(\d+)([a-zA-Z]?)', rd)
@@ -173,14 +172,14 @@ def create_po_summary_by_style(po, config):
     )
     return po_gb
 
-def assign_store_name(po_df, customer):
+def assign_store_name(sp, po_df, customer):
     if customer in ['liverpool', 'suburbia']:
-        store_mapping = invoc.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
+        store_mapping = sp.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
         po_df = po_df.merge(store_mapping, on=C.STORE_ID, how='left')
         return po_df[C.STORE_NAME].fillna("NotFound")
     return np.zeros(len(po_df))
 
-def run_process_purchase_orders(po, config, customer, delivery_date, files_save_path, log_id):
+def run_process_purchase_orders(sp, po, config, customer, delivery_date, files_save_path, log_id):
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
     conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
         [C.STYLE, C.WHOLESALE_PRICE, C.CUSTOMER_COST]].drop_duplicates() #pc = price_conflict
@@ -188,10 +187,10 @@ def run_process_purchase_orders(po, config, customer, delivery_date, files_save_
         st.write(f"""The following styles have price conflicts:""")
         st.table(conflicts)
         st.stop()
-    po = assign_box_number(po, customer, config, log_id)
-    po[C.STORE_NAME] = assign_store_name(po, customer)
-    po_style = upload_po_files_to_sharepoint(po, customer, delivery_date, config, files_save_path)
-    invoc.save_json(config, "config/config.json")
+    po = assign_box_number(sp, po, customer, config, log_id)
+    po[C.STORE_NAME] = assign_store_name(sp, po, customer)
+    po_style = upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files_save_path)
+    sp.save_json(config, "config/config.json")
     return po_style
 
 
