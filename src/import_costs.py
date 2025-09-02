@@ -103,8 +103,8 @@ unit_origin_cost_mx = unit_origin_cost_us * goods_xe
 
 unit_weight = unit_origin_cost_us / total_origin_invoice_us
 unit_freight_mx = (SEA_FREIGHT_MX + LAND_FREIGHT_MX) * unit_weight
-
-unit_cost_mx = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['BUS_KEY']] * COST_FACTOR
+adj_factor = product_data['BUS_KEY'].map(lambda x: customer_net_payments[x] - 1 + COST_FACTOR)
+unit_cost_mx = (product_data['WHOLESALE_PRICE'] * adj_factor).round(2)
 transfer_commission_mx = (product_data['QUANTITY'] @ unit_cost_mx) * 0.04
 unit_commission_mx = (BROKER_FEE_MX + transfer_commission_mx) * unit_weight
 product_data['STYLE_NUMBER'] = [style_to_style_number(x) for x in product_data['STYLE']]
@@ -209,6 +209,6 @@ s.write_df_to_excel(proforma, output_folder, f"proforma_{RD}_{SHIPMENT_ID}_{CUST
 
 
 product_data['FOB+RC'] = unit_origin_cost_us
-product_data['TOTAL'] = total_origin_invoice_us
+# product_data['TOTAL'] = total_origin_invoice_us
 product_data['COST'] = unit_cost_mx
 s.write_df_to_excel(product_data, output_folder, f"FOB_{RD}.xlsx")
