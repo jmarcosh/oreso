@@ -218,7 +218,7 @@ def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_
     ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
     ts['Cantidad'] = ts['Cantidad'].abs()
     ts['FECHA'] = date.today().strftime('%d/%m/%Y')
-    ts['Cliente final'] = customer.title() if isinstance(customer, str) else customer.str.title()
+    ts['Cliente final'] = customer.title() if isinstance(customer, str) else [x.title() for x in customer]
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
