@@ -18,7 +18,7 @@ def undo_inventory(sp, recovery_id, config):
     create_and_save_inventory_summary_table(sp, updated_inv, config)
 
 def undo_rfid(sp, recovery_id, config):
-    customers = config.get("rfid_customers")
+    customers = config.get("customers_rfid")
     for customer in customers:
         rfid_df = sp.read_csv(f"config/rfid_{customer}.csv")
         rfid_df[C.LOG_ID] = rfid_df[C.LOG_ID].where(rfid_df[C.LOG_ID] < recovery_id, np.nan)
@@ -56,7 +56,7 @@ def undo_inventory_update(recovery_id=None):
 
 
 if __name__ == '__main__':
-    undo_inventory_update()
+    undo_inventory_update(20250825191916)
 
 
 # TODO add updated files to log
