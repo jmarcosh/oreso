@@ -8,6 +8,7 @@ from api_integrations.read_excel_files import SharePointContext
 
 # INPUTS
 
+np.random.seed(42)
 
 costing_structure = {
     'splendid_top': 1.23,
@@ -62,6 +63,20 @@ def _compute_unit_other_charges(df, general_weight):
             unit_charges += general_weight * float(lst[1])
     return unit_charges
 
+def _unify_similar_costs(lst):
+    result = [lst[0]]
+    accepted = [lst[0]]
+
+    for i in range(1, len(lst)):
+        for val in accepted:
+            if abs(lst[i] - val) <= 1:
+                result.append(val)
+                break
+        else:
+            accepted.append(lst[i])
+            result.append(lst[i])
+    return pd.Series(result)
+
 
 s = SharePointContext()
 product_data = s.read_excel_file("E8D5FCCC-72C3-4EA3-97EC-C0E5D61D6387", 'Delta')
@@ -104,10 +119,16 @@ unit_origin_cost_mx = unit_origin_cost_us * goods_xe
 unit_weight = unit_origin_cost_us / total_origin_invoice_us
 unit_freight_mx = (SEA_FREIGHT_MX + LAND_FREIGHT_MX) * unit_weight
 adj_factor = product_data['BUS_KEY'].map(lambda x: customer_net_payments[x] - 1 + COST_FACTOR)
-unit_cost_mx = (product_data['WHOLESALE_PRICE'] * adj_factor).round(2)
+unit_cost_mx_raw = (product_data['WHOLESALE_PRICE'] * adj_factor).round(2)
+unit_cost_mx_unif = _unify_similar_costs(unit_cost_mx_raw.tolist())
+cost_keys = list(unit_cost_mx_unif.unique())
+values = np.random.normal(loc=0, scale=0.05, size=len(cost_keys))
+values = 1 + np.clip(values, -0.05, 0.05) # mean=0, std=0.02
+random_cost_dct = dict(zip(cost_keys, values))
+unit_cost_mx = (unit_cost_mx_unif.map(random_cost_dct) * unit_cost_mx_unif).round(2)
 transfer_commission_mx = (product_data['QUANTITY'] @ unit_cost_mx) * 0.04
-unit_commission_mx = (BROKER_FEE_MX + transfer_commission_mx) * unit_weight
 product_data['STYLE_NUMBER'] = [style_to_style_number(x) for x in product_data['STYLE']]
+unit_commission_mx = (BROKER_FEE_MX + transfer_commission_mx) * unit_weight
 customs_data['TOTAL_TAX_RATE'] = (customs_data['TAX_RATE'] + 1.008) * 1.16 - 1
 customs_table = product_data.merge(customs_data.rename({'FOB': 'FOB_CUSTOMS', 'STYLE': 'STYLE_NUMBER'},
                                                        axis=1), on='STYLE_NUMBER', how='left')
