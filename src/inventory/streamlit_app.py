@@ -148,6 +148,9 @@ def main():
 
         run_parser_from_st(delivery_date, temp_paths, update_from_sharepoint)
     cleanup_temp_files()
+    st.write("🔍 Current session_state contents:")
+    st.json(st.session_state)
+
 
 
 main()
