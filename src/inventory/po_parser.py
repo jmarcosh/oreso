@@ -1,8 +1,9 @@
 import argparse
+import re
 from datetime import datetime
 import streamlit as st
 
-from inventory.common_app import record_log, stop_if_locked_files
+from inventory.common_app import record_log, filter_active_logs
 from inventory.common_parser import read_files, allocate_stock, \
     assign_warehouse_codes_from_column_and_update_inventory, update_billing_record, update_inventory_in_memory
 from inventory.internal_orders import run_internal_orders
@@ -27,16 +28,30 @@ def parse_rfid_series_simple(rfid_str):
         raise argparse.ArgumentTypeError(f"Invalid RFID_SERIES format: {e}")
 
 
-def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, log_id):
-    po_nums = po[C.PO_NUM].unique()
+def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, log_id):
     po_save_path = f"OC/RAW/{customer.title()}"
     sp.create_folder_path(po_save_path)
     for po_num in po_nums:
         sp.save_csv(po[po[C.PO_NUM] == po_num], f"{po_save_path}/{po_num}.csv")
-    po_num = "_".join(map(str, po_nums))
+    po_num = "_".join(po_nums)
     files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
     sp.create_folder_path(files_save_path)
     return files_save_path
+
+def stop_processed_orders(logs, po, update_from_sharepoint):
+    po_nums = [str(x) for x in po[C.PO_NUM].unique()]
+    active_logs = filter_active_logs(logs)
+    prev_po_nums = []
+    for item in active_logs["po"].dropna():
+        # split on _ if it is followed by a digit
+        parts = re.split(r'_(?=\d)', item)
+        parts = [re.sub(r"\.0$", "", x) for x in parts]
+        prev_po_nums.extend(parts)
+    intersection = list(set(po_nums) & set(prev_po_nums))
+    if not update_from_sharepoint and (len(intersection) > 0):
+        st.write(f"PO {intersection} was processed already.")
+        st.stop()
+    return po_nums
 
 def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=None):
     # stop_if_locked_files()
@@ -45,12 +60,13 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
     logs = sp.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_column, action = read_files(sp, temp_paths, update_from_sharepoint)
     record_log(sp, logs, log_id, po_type, action, "started")
+    po_nums = stop_processed_orders(logs, po, update_from_sharepoint)
     if po_type in config.get("customers"):
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_column)
         po[C.DELIVERY_DATE] = delivery_date
         po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
-        files_save_path = save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, log_id)
+        files_save_path = save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, log_id)
         if customer in config.get("customers_rfid"):
             po = run_process_purchase_orders(sp, po, config, customer, delivery_date, files_save_path, log_id)
             txn_key = "V"
@@ -65,8 +81,8 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
         po, updated_inv, files_save_path, txn_key = receive_goods(sp, po, inventory, config, delivery_date,
                                                                       update_from_sharepoint, log_id)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
-    record_log(sp, logs, log_id, po_type, action, "success",
-               files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1])
+    po_num = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
+    record_log(sp, logs, log_id, po_type, action, "success", po_num, files_save_path)
     return files_save_path
 
 

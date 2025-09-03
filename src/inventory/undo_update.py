@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from inventory.common_app import record_log, stop_if_locked_files, \
+from inventory.common_app import record_log, filter_active_logs, \
     create_and_save_br_summary_table, create_and_save_inventory_summary_table
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
@@ -52,7 +52,12 @@ def undo_inventory_update(recovery_id=None):
     undo_inventory(sp, recovery_id, log_id, config)
     undo_records(sp, recovery_id, config)
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
-    return logs.loc[logs['log_id'] >= recovery_id, ['log_id', 'action']]
+    active_logs = filter_active_logs(logs)
+    for folder_path in active_logs['files_save_path']:
+        if pd.notna(folder_path):
+            new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}.csv"
+            sp.rename_folder(folder_path, new_name)
+    return active_logs.loc[active_logs['log_id'] >= recovery_id]
 
 
 if __name__ == '__main__':

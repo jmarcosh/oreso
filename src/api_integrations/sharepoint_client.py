@@ -244,6 +244,38 @@ class SharePointClient:
             parent_path = current_path  # Move to next subfolder
         return True
 
+    def rename_folder(self, folder_path: str, new_name: str):
+        """
+        Renames a folder in SharePoint.
+        :param folder_path: Folder path relative to SharePoint root (e.g., 'OC/Customer/2025/07/1234')
+        :param new_name: New name for the folder
+        :return: True if renamed successfully.
+        """
+        # if self.is_local:
+        #     return
+
+        folder_path = folder_path.strip("/")
+        url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{folder_path}"
+
+        # Check if folder exists
+        check_resp = requests.get(url, headers=self.headers)
+        if check_resp.status_code == 404:
+            raise Exception(f"Folder '{folder_path}' does not exist.")
+        elif check_resp.status_code not in [200, 201]:
+            raise Exception(f"Failed to check folder '{folder_path}': {check_resp.text}")
+
+        # Rename folder
+        patch_resp = requests.patch(
+            url,
+            headers={**self.headers, "Content-Type": "application/json"},
+            json={"name": new_name}
+        )
+
+        if patch_resp.status_code not in [200, 201]:
+            raise Exception(f"Failed to rename folder '{folder_path}' to '{new_name}': {patch_resp.text}")
+
+        return True
+
     @staticmethod
     def _format_delivery_note(wb: Workbook):
         ws = wb['Sheet1']
