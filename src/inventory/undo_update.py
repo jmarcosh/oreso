@@ -57,7 +57,7 @@ def undo_inventory_update(recovery_id=None):
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}.csv"
             sp.rename_folder(folder_path, new_name)
-    return active_logs.loc[active_logs['log_id'] >= recovery_id]
+    return active_logs.loc[active_logs['log_id'] >= recovery_id, ['log_id', 'customer', 'action', 'po']]
 
 
 if __name__ == '__main__':

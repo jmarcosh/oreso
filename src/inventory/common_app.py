@@ -33,7 +33,7 @@ def create_and_save_inventory_summary_table(sp, updated_inv, config):
     sp.save_excel(inv_summ, 'INVENTARIO/SUMMARY.xlsx')
 
 def filter_active_logs(logs):
-    active_logs = logs.loc[logs['status'] == 'success', ['log_id', 'customer', 'action', 'po']].copy()
+    active_logs = logs.loc[logs['status'] == 'success'].copy()
     undo_pairs = logs.loc[logs['action'] == 'undo_inventory_update', ['po', 'log_id']]
     undo_pairs["po"] = undo_pairs["po"].fillna(undo_pairs["log_id"]).astype(float)
     for pair in undo_pairs.values:
