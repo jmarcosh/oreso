@@ -39,7 +39,8 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
     return files_save_path
 
 def stop_processed_orders(logs, po, update_from_sharepoint):
-    po_nums = [str(x) for x in po[C.PO_NUM].unique()]
+    po_column = po[C.RD] if update_from_sharepoint else po[C.PO_NUM]
+    po_nums = [str(x) for x in po_column.unique()]
     active_logs = filter_active_logs(logs)
     prev_po_nums = []
     for item in active_logs["po"].dropna():
@@ -89,7 +90,7 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
 
 if __name__ == '__main__':
     DELIVERY_DATE = "09/08/2025"
-    files_path = run_po_parser(DELIVERY_DATE) #, update_from_sharepoint="B25"
+    files_path = run_po_parser(DELIVERY_DATE, update_from_sharepoint="B25") #, update_from_sharepoint="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
     # parser.add_argument("--date", type=str, required=True, help="Delivery date m/d/Y (e.g., '8/16/2025')")
