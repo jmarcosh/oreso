@@ -82,7 +82,8 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
         po, updated_inv, files_save_path, txn_key = receive_goods(sp, po, inventory, config, delivery_date,
                                                                       update_from_sharepoint, log_id)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
-    po_num = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
+    po_num = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1] if files_save_path \
+        else update_from_sharepoint
     record_log(sp, logs, log_id, po_type, action, "success", po_num, files_save_path)
     return files_save_path
 
