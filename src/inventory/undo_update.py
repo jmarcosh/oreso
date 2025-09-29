@@ -53,11 +53,12 @@ def undo_inventory_update(recovery_id=None):
     undo_records(sp, recovery_id, config)
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
     active_logs = filter_active_logs(logs)
-    for folder_path in active_logs['files_save_path']:
+    undone_logs = active_logs.loc[active_logs['log_id'] >= recovery_id]
+    for folder_path in undone_logs['files_save_path']:
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}.csv"
             sp.rename_folder(folder_path, new_name)
-    return active_logs.loc[active_logs['log_id'] >= recovery_id, ['log_id', 'customer', 'action', 'po']]
+    return undone_logs[['log_id', 'customer', 'action', 'po']]
 
 
 if __name__ == '__main__':
