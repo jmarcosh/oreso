@@ -94,7 +94,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     for inventory_wh in split_inventory[1:]:
         it += 1
         po, to_deliver = assign_warehouse_codes(po, inventory_wh, column)
-        po_wh.append(po.loc[po[C.DELIVERED] > 0].copy())
+        po_wh.append(po.loc[po[C.DELIVERED] != 0].copy())
         update_inventory(inventory_wh, po, updated_inv, log_id)
         po[C.DELIVERED] = to_deliver
         po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
@@ -129,7 +129,8 @@ def assign_warehouse_codes(po, inventory_wh, column):
         on=[column], how='left')
     delivered_cs = po.groupby(column)[C.DELIVERED].cumsum()
     missing = (po[C.INVENTORY] - delivered_cs).clip(upper=0).fillna(0)
-    delivered_i = (po[C.DELIVERED] + missing).clip(lower=0)
+    delivered_cs_p_missing = po[C.DELIVERED] + missing
+    delivered_i = delivered_cs_p_missing.clip(lower=0).where(missing < 0, delivered_cs_p_missing)
     to_deliver = po[C.DELIVERED] - delivered_i
     po[C.DELIVERED] = delivered_i
     return po, to_deliver

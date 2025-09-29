@@ -4,7 +4,7 @@ from api_integrations.sharepoint_client import SharePointClient
 
 sp = SharePointClient()
 data0 = sp.read_json("config/config.json")
-dn_num = int(data0.get("dn_structure")[0][1])
+dn_num = int(data0.get("dn_structure").get('NOTA DE REMISION'))
 
 data = {
     "liverpool_rename": {
@@ -94,10 +94,10 @@ data = {
 
 
     "cartons": [
-        {"name": "RM-51", "capacity": 23760, "cost": 24.46, "dimensions": (43, 33, 22)},
-        {"name": "TECLADO", "capacity": 20196, "cost": 24.45, "dimensions": (53, 22, 22)},
-        {"name": "RM-32", "capacity": 17820, "cost": 17.25, "dimensions": (29, 29, 22)},
-        {"name": "RM-31", "capacity": 7920, "cost": 11.5, "dimensions": (30, 21, 14)},
+        {"name": "RM-51", "capacity": 30000, "cost": 24.46, "dimensions": (43, 33, 22)},
+        {"name": "TECLADO", "capacity": 25600, "cost": 24.45, "dimensions": (53, 22, 22)},
+        {"name": "RM-32", "capacity": 18500, "cost": 17.25, "dimensions": (29, 29, 22)},
+        {"name": "RM-31", "capacity": 9000, "cost": 11.5, "dimensions": (30, 21, 14)},
     ],
 
     "rfid_series": {"liverpool": {"prefix": "C", "digits": 8},

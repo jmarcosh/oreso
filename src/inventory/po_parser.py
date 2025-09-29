@@ -32,7 +32,7 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
     po_save_path = f"OC/RAW/{customer.title()}"
     sp.create_folder_path(po_save_path)
     for po_num in po_nums:
-        sp.save_csv(po[po[C.PO_NUM] == po_num], f"{po_save_path}/{po_num}.csv")
+        sp.save_csv(po[po[C.PO_NUM] == int(po_num)], f"{po_save_path}/{po_num}.csv")
     po_num = "_".join(po_nums)
     files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
     sp.create_folder_path(files_save_path)
@@ -89,8 +89,8 @@ def run_po_parser(delivery_date:str, temp_paths:list =[], update_from_sharepoint
 
 
 if __name__ == '__main__':
-    DELIVERY_DATE = "09/08/2025"
-    files_path = run_po_parser(DELIVERY_DATE, update_from_sharepoint="B25") #, update_from_sharepoint="B25"
+    DELIVERY_DATE = "06/10/2025"
+    files_path = run_po_parser(DELIVERY_DATE) #, update_from_sharepoint="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
     # parser.add_argument("--date", type=str, required=True, help="Delivery date m/d/Y (e.g., '8/16/2025')")
