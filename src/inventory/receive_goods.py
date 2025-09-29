@@ -22,7 +22,7 @@ def receive_goods(sp, po, inventory, config, delivery_date, update_from_sharepoi
         updated_inv.loc[changes_index, C.LOG_ID] = log_id
         updated_inv = updated_inv.reset_index()[original_column_order]
         # updated_inv = reset_rows_and_columns_order(updated_inv, original_column_order)
-        files_save_path = update_from_sharepoint
+        files_save_path = None
     else:
         po[C.LOG_ID] = log_id
         po = po.loc[~po[C.RD].isna()].reset_index(drop=True)
