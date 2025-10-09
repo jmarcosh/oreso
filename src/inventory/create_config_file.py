@@ -43,6 +43,7 @@ data = {
         C.SKU: C.SKU,
         C.UPC: C.UPC,
         C.STYLE: C.STYLE,
+        C.RD: C.RD,
     },
 
 

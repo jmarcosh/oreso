@@ -1,7 +1,7 @@
 import pandas as pd
 import requests
 
-from inventory.common_parser import create_and_save_techsmart_txt_file
+from inventory.update_inventory_utils import create_and_save_techsmart_txt_file
 from inventory.varnames import ColNames as C
 
 
@@ -10,14 +10,14 @@ from inventory.varnames import ColNames as C
 def receive_goods(sp, po, inventory, config, delivery_date, update_from_sharepoint, log_id):
     if update_from_sharepoint:
         # inventory["_row_order"] = range(len(inventory))
-        original_column_order = inventory.columns.copy()
-        inventory.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
-        po.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
-        cols = inventory.columns.intersection(po.columns).difference([C.LOG_ID])
-        common_index = inventory.index.intersection(po.index)
-        mask = (inventory.loc[common_index, cols] != po.loc[common_index, cols]).any(axis=1)
-        changes_index = common_index[mask]
         updated_inv = inventory.copy()
+        original_column_order = inventory.columns.copy()
+        updated_inv.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
+        po.set_index([C.RD, C.MOVEX_PO, C.UPC], inplace=True)
+        cols = updated_inv.columns.intersection(po.columns).difference([C.LOG_ID])
+        common_index = updated_inv.index.intersection(po.index)
+        mask = (updated_inv.loc[common_index, cols] != po.loc[common_index, cols]).any(axis=1)
+        changes_index = common_index[mask]
         updated_inv.update(po[cols])
         updated_inv.loc[changes_index, C.LOG_ID] = log_id
         updated_inv = updated_inv.reset_index()[original_column_order]
@@ -42,8 +42,7 @@ def receive_goods(sp, po, inventory, config, delivery_date, update_from_sharepoi
         customer = [customer_mapping.get(x.split("_", 1)[0], x) for x, y in zip(po[C.BUS_KEY], po[C.RECEIVED]) if y > 0]
         techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, rd, files_save_path)
         updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
-    txn_key = 'C'
-    return po, updated_inv, files_save_path, txn_key
+    return updated_inv, files_save_path
 
 
 def add_inventory_cols(po):

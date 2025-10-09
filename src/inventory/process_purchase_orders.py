@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import re
 import streamlit as st
-from inventory.common_parser import (create_and_save_techsmart_txt_file, save_checklist,
-                                         add_nan_cols)
+from inventory.update_inventory_utils import (create_and_save_techsmart_txt_file, save_checklist,
+                                              add_nan_cols)
 from inventory.varnames import ColNames as C
 
 def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
@@ -41,7 +41,7 @@ def assign_box_number(sp, po, customer, config, log_id):
     store_prev = stores[0]
     c = 0
     # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
-    rfid_series_df = sp.read_csv(f"config/rfid_{customer.lower()}.csv")
+    rfid_series_df = sp.read_excel(f"config/rfid_{customer.lower()}.xlsx")
     first_col = rfid_series_df.columns[0]
     rfid_series = rfid_series_df[first_col].tolist()
     start_box = rfid_series_df[rfid_series_df[C.LOG_ID].isna()].index[0]
@@ -58,7 +58,7 @@ def assign_box_number(sp, po, customer, config, log_id):
             store_prev = store_s
         box_assignment.append(rfid_series[box]) if (len(combo_s) > 0) else box_assignment.append(None)
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
-    sp.save_csv(rfid_series_df, f"config/rfid_{customer.lower()}.csv")
+    sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
     return po
 
@@ -174,7 +174,7 @@ def create_po_summary_by_style(po, config):
 
 def assign_store_name(sp, po_df, customer):
     if customer in ['liverpool', 'suburbia']:
-        store_mapping = sp.read_csv(f"config/tiendas_{customer.lower()}.csv", encoding = 'latin1')
+        store_mapping = sp.read_excel(f"config/tiendas_{customer.lower()}.xlsx")
         po_df = po_df.merge(store_mapping, on=C.STORE_ID, how='left')
         return po_df[C.STORE_NAME].fillna("NotFound")
     return np.zeros(len(po_df))

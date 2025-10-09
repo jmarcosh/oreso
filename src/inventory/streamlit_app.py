@@ -9,7 +9,7 @@ import os
 import streamlit as st
 import tempfile
 
-from inventory.po_parser import run_po_parser
+from inventory.update_inventory import run_update_inventory
 from inventory.undo_update import undo_inventory_update
 
 
@@ -73,11 +73,8 @@ def cleanup_temp_files():
 def run_parser_from_st(delivery_date, temp_paths, update_from_sharepoint):
     # Run parser
     st.info("Running...")
-    sharepoint_paths = run_po_parser(
-        delivery_date.strftime("%m/%d/%Y"),
-        temp_paths,
-        update_from_sharepoint if update_from_sharepoint.strip() else None
-    )
+    sharepoint_paths = run_update_inventory(delivery_date.strftime("%m/%d/%Y"), temp_paths,
+                                            update_from_sharepoint if update_from_sharepoint.strip() else None)
     st.success("Success! Files save in Sharepoint")
     st.markdown(f"- 📂 `{sharepoint_paths}`")
     st.session_state['temp_files'] = temp_paths

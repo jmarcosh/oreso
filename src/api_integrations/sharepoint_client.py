@@ -251,8 +251,8 @@ class SharePointClient:
         :param new_name: New name for the folder
         :return: True if renamed successfully.
         """
-        # if self.is_local:
-        #     return
+        if self.is_local:
+            return
 
         folder_path = folder_path.strip("/")
         url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{folder_path}"
