@@ -30,13 +30,13 @@ def create_and_save_br_summary_table(sp, po_br, config):
     br_summ_indexes = config['br_summ_indexes']
     br_summ_values = config['br_summ_values']
     summ = po_br.groupby(br_summ_indexes).agg(br_summ_values).sort_values(by=C.DELIVERY_DATE).reset_index()
-    sp.save_csv(summ, 'FACTURACION/SUMMARY.csv')
+    sp.save_excel(summ, 'FACTURACION/SUMMARY.xlsx')
 
 
 def create_and_save_inventory_summary_table(sp, updated_inv, config):
     inv_summ_indexes = config.get('inventory_summ_indexes')
     inv_summ = updated_inv.groupby(inv_summ_indexes)[C.INVENTORY].sum().reset_index()
-    sp.save_csv(inv_summ, 'INVENTARIO/SUMMARY.csv')
+    sp.save_excel(inv_summ, 'INVENTARIO/SUMMARY.xlsx')
 
 def filter_active_logs(logs):
     active_logs = logs.loc[logs['status'] == 'success'].copy()
