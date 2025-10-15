@@ -34,7 +34,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
 
 
 def validate_all_po_codes_in_inventory(po_missing, column):
-    code_not_found = po_missing.loc[(po_missing[C.STYLE].isna()), column].reset_index(drop=True)
+    code_not_found = po_missing.loc[(po_missing[C.STYLE].isna()), column].drop_duplicates().reset_index(drop=True)
     if not code_not_found.empty:
         st.write(f"""The following codes were not found in inventory:""")
         st.table(code_not_found)
