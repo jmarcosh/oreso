@@ -197,20 +197,31 @@ def warn_processed_orders(sp, logs, po, update_from_sharepoint):
         prev_po_nums.extend(parts)
     intersection = list(set(po_nums) & set(prev_po_nums))
     if not update_from_sharepoint and (len(intersection) > 0):
-        st.warning(f"PO {intersection} was already processed.")
-        proceed = st.radio(
-            "Do you want to continue processing this order anyway?",
-            options=["No", "Yes"],
-            index=0,
-            horizontal=True
-        )
-
-        if proceed == "No":
-            st.stop()
+        pause_for_reprocess_decision(intersection)
+        st.success("Continuing processing...")
         br = sp.read_csv('FACTURACION/FACTURACION.csv')
         br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
         sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
     return po_nums
+
+
+def pause_for_reprocess_decision(intersection):
+    st.warning(f"PO {intersection} was already processed.")
+    proceed = st.radio(
+        "Do you want to continue processing this order anyway?",
+        options=["No", "Yes"],
+        index=None,
+        horizontal=True
+    )
+    # Pause until user selects
+    if proceed is None:
+        st.info("Please select an option to continue.")
+        st.stop()
+    # Stop script if user chooses "No"
+    if proceed == "No":
+        st.info("Processing stopped for this order.")
+        st.stop()
+
 
 
 
