@@ -12,7 +12,7 @@ from api_integrations.sharepoint_client import SharePointClient
 
 
 def undo_inventory(sp, recovery_id, log_id, config):
-    updated_inv = sp.read_csv(f"INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv", encoding="latin1")
+    updated_inv = sp.read_csv(f"INVENTARIO/SNAPSHOTS/inventory_{recovery_id}.csv")
     update_inventory_in_memory(sp, updated_inv, updated_inv, log_id, config)
 
 def undo_rfid(sp, recovery_id, config):

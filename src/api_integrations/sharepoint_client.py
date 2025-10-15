@@ -97,8 +97,12 @@ class SharePointClient:
         response = requests.get(file_url, headers=self.headers)
         response.raise_for_status()  # Raise exception for HTTP errors
 
-        buffer = io.StringIO(response.content.decode(encoding))
-        df = pd.read_csv(buffer, sep=sep)
+        buffer = io.BytesIO(response.content)
+        try:
+            df = pd.read_csv(buffer, sep=sep, encoding=encoding)
+        except UnicodeDecodeError:
+            buffer.seek(0)
+            df = pd.read_csv(buffer, sep=sep, encoding='latin1')
         return df
 
     def save_csv(self, df: pd.DataFrame, file_path: str, sep: str = ','):

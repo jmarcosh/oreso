@@ -1,3 +1,5 @@
+import pandas as pd
+
 from inventory.varnames import ColNames as C
 
 

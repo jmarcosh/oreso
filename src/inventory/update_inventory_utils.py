@@ -210,7 +210,7 @@ def warn_processed_orders(sp, logs, po, update_from_sharepoint):
         br = sp.read_csv('FACTURACION/FACTURACION.csv')
         br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
         sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
-        return po_nums
+    return po_nums
 
 
 
