@@ -40,7 +40,7 @@ def undo_inventory_update(recovery_id=None):
     log_id = int(datetime.today().strftime('%Y%m%d%H%M%S'))
     sp = SharePointClient()
     logs = sp.read_csv("logs/logs.csv")
-    record_log(sp, logs, log_id, 'undo', 'undo_update', "started")
+    record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "started")
     if not recovery_id:
         recovery_id = logs.loc[(logs['status'] =='success') &
                                (logs['action'] != 'undo_inventory_update'), 'log_id'].values[-1]
@@ -52,7 +52,7 @@ def undo_inventory_update(recovery_id=None):
     undo_rfid(sp, recovery_id, config)
     undo_inventory(sp, recovery_id, log_id, config)
     undo_records(sp, recovery_id, config)
-    record_log(sp, logs, log_id, 'undo', 'undo_update', "success", recovery_id)
+    record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
     undone_logs = active_logs.loc[active_logs['log_id'] >= recovery_id]
     for folder_path in undone_logs['files_save_path']:
         if pd.notna(folder_path):
