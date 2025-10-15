@@ -76,7 +76,7 @@ def update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id):
 def split_ordered_quantity_by_warehouse_codes(po, column):
     if C.STORE_ID not in po.columns:
         po[C.STORE_ID] = 0
-    group_cols = [C.STORE_ID, column]
+    group_cols = [C.STORE_ID, *column]
     po[C.MISSING] = po[C.ORDERED] - po.groupby(group_cols)[C.DELIVERED].transform("sum")
 
     group_indices = po.groupby(group_cols).cumcount()
