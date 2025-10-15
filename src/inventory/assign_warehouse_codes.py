@@ -1,5 +1,5 @@
 import pandas as pd
-
+import streamlit as st
 from inventory.varnames import ColNames as C
 
 
@@ -12,6 +12,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
             on=column, how='left')
+    validate_all_po_codes_in_inventory(po_missing, column)
     po_original_cols = po.columns
     it = 0
     po_wh = [po_missing]
@@ -30,6 +31,14 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     updated_inv_lst = updated_inv + split_inventory[it+1:]
     updated_inv = concat_inv_lst(updated_inv_lst)
     return po.sort_values([C.STORE_ID, *column]).reset_index(drop=True), updated_inv
+
+
+def validate_all_po_codes_in_inventory(po_missing, column):
+    code_not_found = po_missing.loc[(po_missing[C.STYLE].isna()), column].reset_index(drop=True)
+    if not code_not_found.empty:
+        st.write(f"""The following codes were not found in inventory:""")
+        st.table(code_not_found)
+        st.stop()
 
 
 def concat_inv_lst(dfs):
@@ -57,11 +66,11 @@ def assign_warehouse_codes(po, inventory_wh, column):
 
 
 def split_df_by_column(df, column):
-    column0 = df[df[column] == "0"]
+    column0 = df[df[column[0]] == "0"]
     df = df.drop(index=column0.index)
     split_dfs = [column0]
     while not df.empty:
-        unique_df = df.drop_duplicates(subset=[column], keep='first')
+        unique_df = df.drop_duplicates(subset=column, keep='first')
         split_dfs.append(unique_df)
         df = df.drop(index=unique_df.index)
     return split_dfs

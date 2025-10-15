@@ -106,7 +106,7 @@ def allocate_stock(po, inventory, column):
                 allocate_i = (demand_store == demand_store.max()).astype(int)
                 if allocate_i.sum() >= stock:
                     indices = np.flatnonzero(allocate_i)  # [1, 3, 4]
-                    keep_indices = indices[:stock]  # [1, 3]
+                    keep_indices = indices[:int(stock)]  # [1, 3]
                     allocate_i = np.zeros_like(allocate_i)
                     allocate_i[keep_indices] = 1
                 delivered_sku += allocate_i
