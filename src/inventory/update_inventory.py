@@ -33,14 +33,14 @@ def run_update_inventory(delivery_date:str, temp_paths:list =[], update_from_sha
     log_id = int(datetime.today().strftime('%Y%m%d%H%M%S'))
     sp = SharePointClient()
     logs = sp.read_csv("logs/logs.csv")
-    po, inventory, config, po_type, matching_column, action = read_files(sp, temp_paths, update_from_sharepoint)
+    po, inventory, config, po_type, matching_columns, action = read_files(sp, temp_paths, update_from_sharepoint)
     record_log(sp, logs, log_id, po_type, action, "started")
     po_nums = warn_processed_orders(sp, logs, po, update_from_sharepoint)
     if po_type in config.get("customers"):
         customer = po_type
-        po[C.DELIVERED] = allocate_stock(po, inventory, matching_column) if customer != "interno" else po[C.ORDERED]
+        po[C.DELIVERED] = allocate_stock(po, inventory, matching_columns)
         po[C.DELIVERY_DATE] = delivery_date
-        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_column, log_id)
+        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_columns, log_id)
         files_save_path = save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, log_id)
         if customer in config.get("customers_rfid"):
             po = run_process_purchase_orders(sp, po, config, customer, delivery_date, files_save_path, log_id)

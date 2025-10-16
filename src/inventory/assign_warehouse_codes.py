@@ -1,25 +1,25 @@
 import pandas as pd
 import streamlit as st
+import numpy as np
 from inventory.varnames import ColNames as C
 
 
 
-def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, column, log_id):
+def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, columns, log_id):
     po_has_rd = C.RD in po.columns
-    column = [C.RD, column] if po_has_rd else [column]
-    split_inventory = [pd.DataFrame(), inventory.copy()] if po_has_rd else split_df_by_column(inventory.copy(), column)
+    split_inventory = [pd.DataFrame(), inventory.copy()] if po_has_rd else split_df_by_column(inventory.copy(), columns)
     update_inv_col = [C.RD, C.WAREHOUSE_CODE] if po_has_rd else [C.WAREHOUSE_CODE]
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
-            on=column, how='left')
-    validate_all_po_codes_in_inventory(po_missing, column)
+            on=columns, how='left')
+    validate_all_po_codes_in_inventory(po_missing, columns)
     po_original_cols = po.columns
     it = 0
     po_wh = [po_missing]
     updated_inv = [split_inventory[0]]
     for inventory_wh in split_inventory[1:]:
         it += 1
-        po, to_deliver = assign_warehouse_codes(po, inventory_wh, column)
+        po, to_deliver = assign_warehouse_codes(po, inventory_wh, columns)
         po_wh.append(po.loc[po[C.DELIVERED] != 0].copy())
         update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id)
         po[C.DELIVERED] = to_deliver
@@ -27,10 +27,10 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
         if len(po) == 0:
             break
     po = pd.concat(po_wh)
-    po = split_ordered_quantity_by_warehouse_codes(po, column)
+    po = split_ordered_quantity_by_warehouse_codes(po, columns)
     updated_inv_lst = updated_inv + split_inventory[it+1:]
     updated_inv = concat_inv_lst(updated_inv_lst)
-    return po.sort_values([C.STORE_ID, *column]).reset_index(drop=True), updated_inv
+    return po.sort_values([C.STORE_ID, *columns]).reset_index(drop=True), updated_inv
 
 
 def validate_all_po_codes_in_inventory(po_missing, column):
@@ -85,7 +85,7 @@ def update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id):
 def split_ordered_quantity_by_warehouse_codes(po, column):
     if C.STORE_ID not in po.columns:
         po[C.STORE_ID] = 0
-    group_cols = [C.STORE_ID, *column]
+    group_cols = [C.PO_NUM, C.STORE_ID, *column]
     po[C.MISSING] = po[C.ORDERED] - po.groupby(group_cols)[C.DELIVERED].transform("sum")
 
     group_indices = po.groupby(group_cols).cumcount()
@@ -95,10 +95,11 @@ def split_ordered_quantity_by_warehouse_codes(po, column):
     po['_is_last'] = group_indices == (group_sizes - 1)
 
     # Adjust ORDERED based on position
-    po[~po['_is_last']][C.ORDERED] = po.loc[~po['_is_last'], C.DELIVERED].values
-    po[po['_is_last']][C.ORDERED] = (
-        po.loc[po['_is_last'], C.DELIVERED] + po.loc[po['_is_last'], C.MISSING]
-    ).values
+    po[C.ORDERED] = np.where(
+        po['_is_last'],
+        po[C.DELIVERED] + po[C.MISSING],
+        po[C.DELIVERED]
+    )
 
     # Clean up
     po = po.drop(columns=[C.MISSING, '_is_last'])

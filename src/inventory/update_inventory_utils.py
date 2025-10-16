@@ -40,7 +40,7 @@ def read_files(sp, temp_paths, update_from_sharepoint):
     if update_from_sharepoint:
         po_df = sp.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
         action = po_type = 'update'
-        matching_column = 'index'
+        matching_columns = ['index']
         cols = po_df.columns.tolist()
     else: # uploaded files
         if sp.is_local:
@@ -48,23 +48,23 @@ def read_files(sp, temp_paths, update_from_sharepoint):
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
         po_type = auto_assign_po_type(po_df)
-        cols_rename = config[f'{po_type.lower()}_rename']
+        cols_rename = {k: v for k, v in config[f'{po_type.lower()}_rename'].items() if k in po_df.columns}
         po_df = po_df.rename(columns=cols_rename)
         if po_type in config.get("customers"):
-            matching_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
-            matching_column = auto_assign_matching_column(po_df, matching_cols)
-            cols = [matching_column] + [x for x in cols_rename.values() if x not in matching_cols]
+            matching_options = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
+            matching_columns = auto_assign_matching_columns(po_df, matching_options)
+            cols = [*matching_columns, *[c for c in cols_rename.values() if c not in matching_options and c!= C.RD]]
             action = 'withdrawal'
         else: # po_type == 'receipt':
-            matching_column = 'index'
+            matching_columns = ['index']
             cols = list(cols_rename.values())
             action = 'receipt'
     for df in [po_df, inventory_df]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     return ((po_df.reset_index()
-             .sort_values(by=matching_column)[cols]
+             .sort_values(by=matching_columns)[cols]
              .reset_index(drop=True)),
-            inventory_df, config, po_type, matching_column, action)
+            inventory_df, config, po_type, matching_columns, action)
 
 def convert_numeric_id_cols_to_text(df, cols):
     for col in cols:
@@ -81,20 +81,23 @@ def auto_assign_po_type(df):
         return 'receipt'
     return 'interno'
 
-def auto_assign_matching_column(df, lst):
+def auto_assign_matching_columns(df, lst):
+    matching_columns = [C.RD] if C.RD in df.columns else []
     for col in lst:
         if col in df.columns:
-            return col
-    sys.exit("Error: File must contain a matching column.")
+            return matching_columns + [col]
+    st.stop("Error: File must contain a matching column.")
 
 
 
-def allocate_stock(po, inventory, column):
-    code_lst = po[column].unique()
+def allocate_stock(po, inventory, cols):
+    code_combinations = po[cols].drop_duplicates().itertuples(index=False, name=None)
     delivered = []
-    for code in code_lst:
-        po_sku = po[po[column] == code]
-        inventory_sku = inventory[inventory[column] == code]
+    for values in code_combinations:
+        po_mask = np.logical_and.reduce([(po[c] == v) for c, v in zip(cols, values)])
+        inv_mask = np.logical_and.reduce([(inventory[c] == v) for c, v in zip(cols, values)])
+        po_sku = po[po_mask]
+        inventory_sku = inventory[inv_mask]
         demand = po_sku[C.ORDERED].sum()
         stock = inventory_sku[C.INVENTORY].sum()
         if stock >= demand:
