@@ -217,7 +217,8 @@ def pause_for_reprocess_decision(intersection):
         "Do you want to continue processing this order anyway?",
         options=["No", "Yes"],
         index=None,
-        horizontal=True
+        horizontal=True,
+        key=f"{key}_radio"  # Unique widget key
     )
     # Pause until user selects
     if proceed is None:
