@@ -198,14 +198,14 @@ def warn_processed_orders(sp, logs, po, update_from_sharepoint):
         parts = [re.sub(r"\.0$", "", x) for x in parts]
         prev_po_nums.extend(parts)
     intersection = list(set(po_nums) & set(prev_po_nums))
-    if not update_from_sharepoint and (len(intersection) > 0) and "reprocess" not in st.session_state:
-        pause_for_reprocess_decision(intersection)
-        # br = sp.read_csv('FACTURACION/FACTURACION.csv')
-        # br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
-        # sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
-    for key in list(st.session_state.keys()):
-        if key.startswith("decision_"):
-            del st.session_state[key]
+    # if not update_from_sharepoint and (len(intersection) > 0) and "reprocess" not in st.session_state:
+    #     pause_for_reprocess_decision(intersection)
+    #     # br = sp.read_csv('FACTURACION/FACTURACION.csv')
+    #     # br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
+    #     # sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
+    # for key in list(st.session_state.keys()):
+    #     if key.startswith("decision_"):
+    #         del st.session_state[key]
 
     return po_nums
 
