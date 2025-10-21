@@ -35,7 +35,7 @@ def read_temp_files(temp_files):
 
 def read_files(sp, temp_paths, update_from_sharepoint):
     config = sp.read_json("config/config.json")
-    inventory_df = pd.read_csv('/home/jmarcosh/Downloads/inventory_20251016052420.csv', encoding='latin1')
+    inventory_df = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     if update_from_sharepoint:
         po_df = sp.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
         action = po_type = 'update'

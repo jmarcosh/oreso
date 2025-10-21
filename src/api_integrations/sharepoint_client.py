@@ -114,8 +114,8 @@ class SharePointClient:
         :param sep: Field delimiter (default ','; use '\t' for tab-delimited .txt).
         :return: True if upload succeeded, False otherwise.
         """
-        # if self.is_local:
-        #     return
+        if self.is_local:
+            return
         buffer = io.StringIO()
         df.to_csv(buffer, index=False, na_rep="", sep=sep)
         buffer.seek(0)
