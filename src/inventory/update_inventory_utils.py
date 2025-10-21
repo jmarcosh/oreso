@@ -1,4 +1,3 @@
-import sys
 import os
 import re
 import numpy as np
@@ -36,7 +35,7 @@ def read_temp_files(temp_files):
 
 def read_files(sp, temp_paths, update_from_sharepoint):
     config = sp.read_json("config/config.json")
-    inventory_df = sp.read_csv('INVENTARIO/INVENTARIO.csv')
+    inventory_df = pd.read_csv('/home/jmarcosh/Downloads/inventory_20251016052420.csv', encoding='latin1')
     if update_from_sharepoint:
         po_df = sp.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
         action = po_type = 'update'
@@ -44,7 +43,7 @@ def read_files(sp, temp_paths, update_from_sharepoint):
         cols = po_df.columns.tolist()
     else: # uploaded files
         if sp.is_local:
-            po_read_path = '../../files/inventory/drag_and_drop'  ##for local debugging
+            po_read_path = '../../files/drag_and_drop'  ##for local debugging
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
         po_type = auto_assign_po_type(po_df)
@@ -199,17 +198,21 @@ def warn_processed_orders(sp, logs, po, update_from_sharepoint):
         parts = [re.sub(r"\.0$", "", x) for x in parts]
         prev_po_nums.extend(parts)
     intersection = list(set(po_nums) & set(prev_po_nums))
-    if not update_from_sharepoint and (len(intersection) > 0):
+    if not update_from_sharepoint and (len(intersection) > 0) and "reprocess" not in st.session_state:
         pause_for_reprocess_decision(intersection)
-        st.success("Continuing processing...")
-        br = sp.read_csv('FACTURACION/FACTURACION.csv')
-        br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
-        sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
+        # br = sp.read_csv('FACTURACION/FACTURACION.csv')
+        # br.loc[br[C.PO_NUM].astype(str).isin(intersection), [C.SUBTOTAL, C.DISCOUNT, C.SUBTOTAL_NET, C.VAT]] = 0
+        # sp.save_csv(br, 'FACTURACION/FACTURACION.csv')
+    for key in list(st.session_state.keys()):
+        if key.startswith("decision_"):
+            del st.session_state[key]
+
     return po_nums
 
 
 def pause_for_reprocess_decision(intersection):
     st.warning(f"PO {intersection} was already processed.")
+    key = "reprocess"
     proceed = st.radio(
         "Do you want to continue processing this order anyway?",
         options=["No", "Yes"],
@@ -224,6 +227,10 @@ def pause_for_reprocess_decision(intersection):
     if proceed == "No":
         st.info("Processing stopped for this order.")
         st.stop()
+    if proceed == "Yes":
+        st.session_state[key] = "continue"
+        st.success("Continuing processing...")
+        st.rerun()
 
 
 

@@ -76,7 +76,9 @@ def split_df_by_column(df, column):
     return split_dfs
 
 def update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id):
+    inventory_wh_index = inventory_wh.index
     inventory_wh = inventory_wh.merge(po.groupby(update_inv_col)[C.DELIVERED].sum(), on=update_inv_col, how="left")
+    inventory_wh.index = inventory_wh_index
     inventory_wh[C.DELIVERED] = inventory_wh[C.DELIVERED].fillna(0)
     inventory_wh.loc[inventory_wh[C.DELIVERED] > 0, C.LOG_ID] = log_id
     inventory_wh[C.INVENTORY] = inventory_wh[C.INVENTORY] - inventory_wh[C.DELIVERED]
