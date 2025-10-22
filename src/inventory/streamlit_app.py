@@ -75,7 +75,7 @@ def run_parser_from_st(delivery_date, temp_paths, update_from_sharepoint):
     st.info("Running...")
     sharepoint_paths = run_update_inventory(delivery_date.strftime("%m/%d/%Y"), temp_paths,
                                             update_from_sharepoint if update_from_sharepoint.strip() else None)
-    st.success("Success! Files save in Sharepoint")
+    st.success("Success! Files saved in Sharepoint")
     st.markdown(f"- 📂 `{sharepoint_paths}`")
     st.session_state['temp_files'] = temp_paths
 
@@ -93,26 +93,28 @@ def save_temp_files(uploaded_files):
 
 
 def uploader_and_parameters():
+    # Optional: use existing file from SharePoint
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        with st.expander("🔄 Update from SharePoint"):
+            update_from_sharepoint = st.text_input(
+                "Season",
+                placeholder="ex. B26"
+            )
+
     # Upload Excel files
     uploaded_files = st.file_uploader(
         "Upload files",
         type=["xlsx", "csv"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
     )
-    # Optional: use existing file from SharePoint
-    with st.expander("🔄 Update from SharePoint"):
-        update_from_sharepoint = st.text_input(
-            "Season",
-            placeholder="ex. B26"
-        )
+
     # Parameters
     delivery_date = st.date_input("Delivery Date")
     return delivery_date, update_from_sharepoint, uploaded_files
 
 
 def undo_button():
-    # --- UI ---
-    st.title("📦 INVOC")
     # --- Undo (top-right, optional recovery_id) ---
     col1, col2 = st.columns([5, 1])
     with col2:
@@ -130,10 +132,23 @@ def undo_button():
 
 
 def main():
+    # --- UI ---
+    st.title("📦 INVOC")
     undo_button()
     delivery_date, update_from_sharepoint, uploaded_files = uploader_and_parameters()
+
+    col1, col2, col3 = st.columns([1, 1, 1])  # adjust widths as needed
+    with col1:
+        start_clicked = st.button("Start")
+    with col3:
+        st.checkbox(
+            "Ignore processed POs",
+            key="ignore_processed",
+            value=False
+        )
+
     # Run
-    if st.button("Start"):
+    if start_clicked:
         if not uploaded_files and not update_from_sharepoint:
             st.error("Upload a file first")
             st.stop()

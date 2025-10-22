@@ -43,7 +43,8 @@ def read_files(sp, temp_paths, update_from_sharepoint):
         cols = po_df.columns.tolist()
     else: # uploaded files
         if sp.is_local:
-            po_read_path = '../../files/drag_and_drop'  ##for local debugging
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            po_read_path = os.path.join(BASE_DIR, "../../files/drag_and_drop")  ##for local debugging
             temp_paths = get_all_csv_files_in_directory(po_read_path)
         po_df = read_temp_files(temp_paths)
         po_type = auto_assign_po_type(po_df)
@@ -69,7 +70,7 @@ def convert_numeric_id_cols_to_text(df, cols):
     for col in cols:
         if col in df.columns:
             df[col] = (pd.to_numeric(df[col], errors='coerce').fillna(df[col].fillna(0))
-                       .astype(str).replace('\..*$', '', regex=True))
+                       .astype(str).replace(r'\..*$', '', regex=True))
 
 def auto_assign_po_type(df):
     if '# Prov' in df.columns:
@@ -198,36 +199,15 @@ def warn_processed_orders(sp, logs, po, update_from_sharepoint):
         parts = [re.sub(r"\.0$", "", x) for x in parts]
         prev_po_nums.extend(parts)
     intersection = list(set(po_nums) & set(prev_po_nums))
-    if not update_from_sharepoint and (len(intersection) > 0): #and "reprocess" not in st.session_state:
-        pause_for_reprocess_decision(intersection)
-    # for key in list(st.session_state.keys()):
-    #     if key.startswith("decision_"):
-    #         del st.session_state[key]
+    if not update_from_sharepoint and (len(intersection) > 0) and not st.session_state.get("ignore_processed", False):
+        warn_preprocessed_orders_and_stop(intersection)
     return po_nums
 
 
-def pause_for_reprocess_decision(intersection):
-    st.warning(f"PO {intersection} was already processed.")
-    key = "reprocess"
-    proceed = st.radio(
-        "Do you want to continue processing this order anyway?",
-        options=["No", "Yes"],
-        # index=None,
-        # horizontal=True,
-        # key=f"{key}_radio"  # Unique widget key
-    )
-    # Pause until user selects
-    # if proceed is None:
-    #     st.info("Please select an option to continue.")
-    #     st.stop()
-    # Stop script if user chooses "No"
-    if proceed == "No":
-        st.info("Processing stopped for this order.")
-        st.stop()
-    if proceed == "Yes":
-        # st.session_state[key] = "continue"
-        st.success("Continuing processing...")
-        # st.rerun()
+def warn_preprocessed_orders_and_stop(intersection):
+    st.error(f"PO {intersection} was already processed.")
+    st.stop()
+
 
 
 

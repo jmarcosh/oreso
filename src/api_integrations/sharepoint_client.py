@@ -3,6 +3,7 @@ from typing import Union
 
 import msal
 import requests
+import json
 import pandas as pd
 import io
 import toml
@@ -143,19 +144,22 @@ class SharePointClient:
         response.raise_for_status()
         return response.json()
 
-    def save_json(self, data: dict, file_path: str):
+    def save_json(self, data: dict, file_path: str, save_local: bool = False):
         """
         Saves a Python dictionary as a JSON file to SharePoint.
 
         :param data: Python dictionary to save.
         :param file_path: Path in SharePoint to save the JSON file.
+        :param save_local: If True, save the local file. Default is False.
         :return: True if upload succeeded, False otherwise.
         """
+        if self.is_local and not save_local:
+            return True
         upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
         response = requests.put(
             upload_url,
             headers={**self.headers, "Content-Type": "application/json"},
-            data=pd.io.json.dumps(data)
+            data=json.dumps(data)
         )
         return response.status_code in [200, 201]
 

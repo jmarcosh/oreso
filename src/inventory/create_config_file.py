@@ -196,6 +196,6 @@ data = {
 
 
 
-sp.save_json(data, "config/config.json")
+sp.save_json(data, "config/config.json", save_local=True)
 # with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:
 #     json.dump(data, f, indent=2)
