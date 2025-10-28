@@ -182,14 +182,19 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
     po_save_path = f"OC/RAW/{customer.title()}"
     sp.create_folder_path(po_save_path)
     for po_num in po_nums:
-        sp.save_csv(po[po[C.PO_NUM].astype(str) == po_num], f"{po_save_path}/{po_num}.csv")
+        if st.session_state.get("ignore_processed", False):
+            prev_po = sp.read_csv(f"{po_save_path}/{po_num}.csv")
+            po_concat = pd.concat([prev_po, po], ignore_index=True).drop_duplicates([C.STORE_ID, C.STYLE], keep="last")
+            sp.save_csv(po_concat, f"{po_save_path}/{po_num}.csv")
+        else:
+            sp.save_csv(po[po[C.PO_NUM].astype(str) == po_num], f"{po_save_path}/{po_num}.csv")
     po_num = "_".join(po_nums)
     files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
     sp.create_folder_path(files_save_path)
     return files_save_path
 
-def warn_processed_orders(sp, logs, po, update_from_sharepoint):
-    po_column = po[C.RD] if update_from_sharepoint else po[C.PO_NUM]
+def warn_processed_orders(logs, po, po_type, update_from_sharepoint):
+    po_column = po[C.RD] if (update_from_sharepoint | (po_type == 'receipt')) else po[C.PO_NUM]
     po_nums = [str(x) for x in po_column.unique()]
     active_logs = filter_active_logs(logs)
     prev_po_nums = []

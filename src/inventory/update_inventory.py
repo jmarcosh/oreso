@@ -28,14 +28,14 @@ def parse_rfid_series_simple(rfid_str):
         raise argparse.ArgumentTypeError(f"Invalid RFID_SERIES format: {e}")
 
 
-def run_update_inventory(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=None):
+def run_update_inventory(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=False):
     # stop_if_locked_files()
     log_id = int(datetime.today().strftime('%Y%m%d%H%M%S'))
     sp = SharePointClient()
     logs = sp.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_columns, action = read_files(sp, temp_paths, update_from_sharepoint)
     record_log(sp, logs, log_id, po_type, action, "started")
-    po_nums = warn_processed_orders(sp, logs, po, update_from_sharepoint)
+    po_nums = warn_processed_orders(logs, po, po_type, update_from_sharepoint)
     if po_type in config.get("customers"):
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_columns)
