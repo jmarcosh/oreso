@@ -194,7 +194,7 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
     return files_save_path
 
 def warn_processed_orders(logs, po, po_type, update_from_sharepoint):
-    po_column = po[C.RD] if (update_from_sharepoint | (po_type == 'receipt')) else po[C.PO_NUM]
+    po_column = po[C.RD] if (update_from_sharepoint or (po_type == 'receipt')) else po[C.PO_NUM]
     po_nums = [str(x) for x in po_column.unique()]
     active_logs = filter_active_logs(logs)
     prev_po_nums = []
