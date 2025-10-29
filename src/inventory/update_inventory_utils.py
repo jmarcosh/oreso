@@ -51,9 +51,9 @@ def read_files(sp, temp_paths, update_from_sharepoint):
         cols_rename = {k: v for k, v in config[f'{po_type.lower()}_rename'].items() if k in po_df.columns}
         po_df = po_df.rename(columns=cols_rename)
         if po_type in config.get("customers"):
-            matching_options = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
+            matching_options = [C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
             matching_columns = auto_assign_matching_columns(po_df, matching_options)
-            cols = [*matching_columns, *[c for c in cols_rename.values() if c not in matching_options and c!= C.RD]]
+            cols = [*matching_columns, *[c for c in cols_rename.values() if c not in matching_options]]
             action = 'withdrawal'
         else: # po_type == 'receipt':
             matching_columns = ['index']
@@ -77,15 +77,19 @@ def auto_assign_po_type(df):
         return 'liverpool'
     elif 'Num. Prov' in df.columns:
         return 'suburbia'
-    elif C.MOVEX_PO in df.columns:
+    elif C.PCS_BOX in df.columns:
         return 'receipt'
     return 'interno'
 
 def auto_assign_matching_columns(df, lst):
-    matching_columns = [C.RD] if C.RD in df.columns else []
+    stop_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
+    matching_columns = []
     for col in lst:
         if col in df.columns:
-            return matching_columns + [col]
+            matching_columns.append(col)
+            if col in stop_cols:
+                return matching_columns
+    st.error("Error: File must contain at least one of the following columns: WAREHOUSE_CODE, SKU, UPC, or STYLE.")
     st.stop("Error: File must contain a matching column.")
 
 
