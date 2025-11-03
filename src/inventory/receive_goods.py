@@ -1,7 +1,7 @@
 import pandas as pd
 import requests
 
-from inventory.update_inventory_utils import create_and_save_techsmart_txt_file
+from inventory.update_inventory_utils import create_and_save_techsmart_txt_file, add_dash_before_size
 from inventory.varnames import ColNames as C
 
 
@@ -33,6 +33,7 @@ def receive_goods(sp, po, inventory, config, delivery_date, update_from_sharepoi
                                 .str.pad(6, side='right', fillchar='0').str[:6]
                                 + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
         po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
+        po[C.STYLE] = add_dash_before_size(po[C.STYLE])
         rd = po.loc[0, C.RD]
         update_master_entry_file(sp, po, rd[:3])
         files_save_path = f"OC/Recibos/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(rd)}"

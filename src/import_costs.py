@@ -5,6 +5,7 @@ import numpy as np
 import re
 
 from api_integrations.read_excel_files import SharePointContext
+from inventory.update_inventory_utils import add_dash_before_size
 
 # INPUTS
 
@@ -80,7 +81,7 @@ def _unify_similar_costs(lst):
 
 s = SharePointContext()
 product_data = s.read_excel_file("E8D5FCCC-72C3-4EA3-97EC-C0E5D61D6387", 'Delta')
-
+product_data['STYLE'] = add_dash_before_size(product_data['STYLE'])
 customs_data = s.read_excel_file("FC11D2D0-5248-4A1A-9EE2-2225C82A6144", dtype={'STYLE': str})
 pars = s.read_excel_file("1A9D13A1-4B4B-4618-BA00-205D8A3B4572").set_index('input')
 

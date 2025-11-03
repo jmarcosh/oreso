@@ -217,6 +217,22 @@ def warn_preprocessed_orders_and_stop(intersection):
     st.error(f"PO {intersection} was already processed.")
     st.stop()
 
+def add_dash_before_size(style_col):
+    style_col = style_col.str.replace(" ", "")
+    sizes = ['24MO', '18MO', '12MO', '6MO', '3MO', '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
+             '16', '14', '12', '10', '8', '6', '4']
+    sizes_pattern = '|'.join(map(re.escape, sizes))  # join with | for regex
+
+    # Single regex: match size at end only if not preceded by dash
+    pattern = r'(?<!-)(' + sizes_pattern + r')$'
+    mask_single_dash = style_col.str.count('-') <= 1
+
+    # Vectorized replacement
+    return style_col.where(
+        ~mask_single_dash,
+        style_col.str.replace(pattern, r'-\1', regex=True, flags=re.IGNORECASE)
+    )
+
 
 
 
