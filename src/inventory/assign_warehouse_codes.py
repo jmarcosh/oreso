@@ -6,9 +6,7 @@ from inventory.varnames import ColNames as C
 
 
 def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, columns, log_id):
-    po_has_rd = C.RD in po.columns
-    split_inventory = [pd.DataFrame(), inventory.copy()] if po_has_rd else split_df_by_column(inventory.copy(), columns)
-    update_inv_col = [C.RD, C.WAREHOUSE_CODE] if po_has_rd else [C.WAREHOUSE_CODE]
+    split_inventory = split_df_by_columns(inventory.copy(), columns)
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
             on=columns, how='left')
@@ -21,7 +19,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
         it += 1
         po, to_deliver = assign_warehouse_codes(po, inventory_wh, columns)
         po_wh.append(po.loc[po[C.DELIVERED] != 0].copy())
-        update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id)
+        update_inventory(inventory_wh, po, updated_inv, columns, log_id)
         po[C.DELIVERED] = to_deliver
         po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
         if len(po) == 0:
@@ -65,19 +63,19 @@ def assign_warehouse_codes(po, inventory_wh, column):
     return po, to_deliver
 
 
-def split_df_by_column(df, column):
-    column0 = df[df[column[0]] == "0"]
+def split_df_by_columns(df, columns):
+    column0 = df[(df[columns] == "0").all(axis=1)]
     df = df.drop(index=column0.index)
     split_dfs = [column0]
     while not df.empty:
-        unique_df = df.drop_duplicates(subset=column, keep='first')
+        unique_df = df.drop_duplicates(subset=columns, keep='first')
         split_dfs.append(unique_df)
         df = df.drop(index=unique_df.index)
     return split_dfs
 
-def update_inventory(inventory_wh, po, update_inv_col, updated_inv, log_id):
+def update_inventory(inventory_wh, po, updated_inv, columns, log_id):
     inventory_wh_index = inventory_wh.index
-    inventory_wh = inventory_wh.merge(po.groupby(update_inv_col)[C.DELIVERED].sum(), on=update_inv_col, how="left")
+    inventory_wh = inventory_wh.merge(po.groupby(columns)[C.DELIVERED].sum().reset_index(), on=columns, how="left")
     inventory_wh.index = inventory_wh_index
     inventory_wh[C.DELIVERED] = inventory_wh[C.DELIVERED].fillna(0)
     inventory_wh.loc[inventory_wh[C.DELIVERED] > 0, C.LOG_ID] = log_id
