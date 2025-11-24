@@ -1,4 +1,4 @@
-import sys
+import streamlit as st
 
 import pandas as pd
 from inventory.varnames import ColNames as C
@@ -19,9 +19,13 @@ def record_log(sp, logs, log_id, customer, action, status, po_number=None, files
 
 
 def stop_if_locked_files(sp):
-    for file in ["INVENTARIO/INVENTARIO.xlsx", "FACTURACION/FACTURACION.xlsx"]:
-        if sp.is_excel_file_locked(file):
-            sys.exit(f"Close {file.split('/', 1)[-1]} and start again!")
+    for file in ["INVENTARIO/SUMMARY.xlsx"]:
+        df = sp.read_excel(file)
+        try:
+            sp.save_excel(df, file)
+        except Exception as e:
+            st.write(f"{e}. Run again")
+            st.stop()
 
 
 

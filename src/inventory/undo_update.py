@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from inventory.common_app import record_log, filter_active_logs, \
-    create_and_save_br_summary_table, update_inventory_in_memory
+    create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
 
@@ -36,9 +36,9 @@ def undo_catalog(recovery_id, config):
 
 
 def undo_inventory_update(recovery_id=None):
-    # stop_if_locked_files()
     log_id = int(datetime.today().strftime('%Y%m%d%H%M%S'))
     sp = SharePointClient()
+    stop_if_locked_files(sp)
     logs = sp.read_csv("logs/logs.csv")
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "started")
     if not recovery_id:

@@ -3,7 +3,7 @@ from datetime import datetime
 import streamlit as st
 
 from inventory.assign_warehouse_codes import assign_warehouse_codes_from_column_and_update_inventory
-from inventory.common_app import record_log, update_inventory_in_memory
+from inventory.common_app import record_log, update_inventory_in_memory, stop_if_locked_files
 from inventory.update_inventory_utils import read_files, allocate_stock, update_billing_record, warn_processed_orders, \
     save_raw_po_and_create_file_paths
 from inventory.process_internal_orders import run_internal_orders
@@ -29,9 +29,9 @@ def parse_rfid_series_simple(rfid_str):
 
 
 def run_update_inventory(delivery_date:str, temp_paths:list =[], update_from_sharepoint:str=False):
-    # stop_if_locked_files()
     log_id = int(datetime.today().strftime('%Y%m%d%H%M%S'))
     sp = SharePointClient()
+    stop_if_locked_files(sp)
     logs = sp.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_columns, action = read_files(sp, temp_paths, update_from_sharepoint)
     record_log(sp, logs, log_id, po_type, action, "started")
