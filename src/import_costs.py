@@ -125,8 +125,8 @@ adj_factor = product_data['BUS_KEY'].map(lambda x: customer_net_payments[x] - 1 
 unit_cost_mx_raw = (product_data['WHOLESALE_PRICE'] * adj_factor).round(2)
 unit_cost_mx_unif = _unify_similar_costs(unit_cost_mx_raw.tolist())
 cost_keys = list(unit_cost_mx_unif.unique())
-values = np.random.normal(loc=0, scale=0.05, size=len(cost_keys))
-values = 1 + np.clip(values, -0.05, 0.05) # mean=0, std=0.02
+values = np.random.normal(loc=0, scale=0.04, size=len(cost_keys))
+values = 1 + np.clip(values, -0.05, 0.05)
 random_cost_dct = dict(zip(cost_keys, values))
 unit_cost_mx = (unit_cost_mx_unif.map(random_cost_dct) * unit_cost_mx_unif).round(2)
 transfer_commission_mx = (product_data['QUANTITY'] @ unit_cost_mx) * 0.04
