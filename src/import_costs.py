@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 import re
 
-from api_integrations.read_excel_files import SharePointContext
+from sharepoint_api.sharepoint_client import SharePointClient
+
 from inventory.update_inventory_utils import add_dash_before_size
 
 # INPUTS
@@ -79,11 +80,13 @@ def _unify_similar_costs(lst):
     return pd.Series(result)
 
 
-s = SharePointContext()
-product_data = s.read_excel_file("E8D5FCCC-72C3-4EA3-97EC-C0E5D61D6387", 'Delta')
+sp = SharePointClient(site='servoreso', dry_run=False,  config_path="../config_files/secrets.toml")
+
+product_data = sp.read_excel("Imports/Templates/fob.xlsx", 'Delta')
 product_data['STYLE'] = add_dash_before_size(product_data['STYLE'])
-customs_data = s.read_excel_file("FC11D2D0-5248-4A1A-9EE2-2225C82A6144", dtype={'STYLE': str})
-pars = s.read_excel_file("1A9D13A1-4B4B-4618-BA00-205D8A3B4572").set_index('input')
+customs_data = sp.read_excel("Imports/Templates/customs.xlsx")
+customs_data['STYLE'] = customs_data['STYLE'].astype(str)
+pars = sp.read_excel("Imports/Templates/parameters.xlsx").set_index('input')
 
 RD = pars.loc['rd'][0]
 SHIPMENT_ID = pars.loc['shipment_id'][0]
@@ -93,10 +96,9 @@ if RD != product_data.loc[0, 'RD']:
     sys.exit()
 
 output_folder = f'/Imports/Files/{RD[:-1]}/{RD}'
-
-s.write_df_to_excel(product_data, output_folder, f"FOB_{RD}.xlsx")
-s.write_df_to_excel(customs_data, output_folder, f"customs_data_{RD}.xlsx")
-s.write_df_to_excel(pars.reset_index(), output_folder, f"parameters_{RD}.xlsx")
+sp.create_folder_path(output_folder)
+sp.save_excel(customs_data, f"{output_folder}/customs_data_{RD}.xlsx")
+sp.save_excel(pars.reset_index(),f"{output_folder}/parameters_{RD}.xlsx")
 
 GOODS_TOTAL_COST_MX = float(pars.loc['goods_total_cost_mx'])
 CUSTOMS_RETENTION_MX = float(pars.loc['customs_retention_mx'])
@@ -219,18 +221,18 @@ if unit_other_charges_mx.sum() == 0:
     basic_cost_save.drop(columns='OTHER_CHARGES_MX', axis=1, inplace=True)
     indicator.drop(columns='OTHER_CHARGES_MX', axis=1, inplace=True)
 
-s.write_df_to_excel(basic_cost_save, output_folder, f"basic_cost_{RD}.xlsx")
-s.write_df_to_excel(indicator, output_folder, f"indicator_{RD}.xlsx")
+sp.save_excel(basic_cost_save, f"{output_folder}/basic_cost_{RD}.xlsx")
+sp.save_excel(indicator, f"{output_folder}/indicator_{RD}.xlsx")
 
 proforma_cols = ["INVOICE", "RD", "MOVEX_PO", "STYLE", "DESCRIPTION", "UPC", "QUANTITY"]
 
 proforma = product_data[proforma_cols].copy()
 proforma['PRICE'] = unit_cost_mx
 proforma['SUBTOTAL'] = proforma['QUANTITY'] * proforma['PRICE']
-s.write_df_to_excel(proforma, output_folder, f"proforma_{RD}_{SHIPMENT_ID}_{CUSTOMS_ID}.xlsx")
+sp.save_excel(proforma, f"{output_folder}/proforma_{RD}_{SHIPMENT_ID}_{CUSTOMS_ID}.xlsx")
 
 
 product_data['FOB+RC'] = unit_origin_cost_us
 # product_data['TOTAL'] = total_origin_invoice_us
 product_data['COST'] = unit_cost_mx
-s.write_df_to_excel(product_data, output_folder, f"FOB_{RD}.xlsx")
+sp.save_excel(product_data, f"{output_folder}/FOB_{RD}.xlsx")
