@@ -81,7 +81,8 @@ class SharePointClient:
         upload_url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{file_path}:/content"
         response = requests.put(upload_url, headers=self.headers, data=buffer.read())
         if response.status_code not in [200, 201]:
-            raise Exception(f"Failed to update file: {file_path}")
+            st.write(f"Close {file_path} and run again")
+            st.stop()
         return response.status_code in [200, 201]
 
 

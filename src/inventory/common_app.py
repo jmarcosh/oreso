@@ -21,13 +21,7 @@ def record_log(sp, logs, log_id, customer, action, status, po_number=None, files
 def stop_if_locked_files(sp):
     for file in ["INVENTARIO/SUMMARY.xlsx"]:
         df = sp.read_excel(file)
-        try:
-            sp.save_excel(df, file)
-        except Exception as e:
-            st.write(f"{e}. Run again")
-            st.stop()
-
-
+        sp.save_excel(df, file)
 
 
 def create_and_save_br_summary_table(sp, po_br, config):
