@@ -77,7 +77,7 @@ def auto_assign_po_type(df):
         return 'liverpool'
     elif 'Num. Prov' in df.columns:
         return 'suburbia'
-    elif C.PCS_BOX in df.columns:
+    elif 'PCS_BOX' in df.columns:
         return 'receipt'
     return 'interno'
 
