@@ -24,10 +24,11 @@ costing_structure = {
     'tahari_top': 1.22,
     'tahari_underwire': 1.22,
     'tahari_wireless': 1.22,
-    'tahari_panty': 1.22
+    'tahari_panty': 1.22,
+    'moncaramel_thermal': 1.15,
 }
 
-customer_net_payments = dict(lvp_b=0.88, lvp_m=0.88, sub_b=0.79, sub_m=0.79)
+customer_net_payments = dict(splendid=0.88, thatsit=0.88, piqueniqu=0.88, tahari=0.79, moncaramel=0.88)
 
 retention_rate = 0.1015
 
@@ -121,7 +122,7 @@ unit_origin_cost_mx = unit_origin_cost_us * goods_xe
 
 unit_weight = unit_origin_cost_us / total_origin_invoice_us
 unit_freight_mx = (SEA_FREIGHT_MX + LAND_FREIGHT_MX) * unit_weight
-adj_factor = product_data['BUS_KEY'].map(lambda x: customer_net_payments[x] - 1 + COST_FACTOR)
+adj_factor = product_data['BRAND'].map(lambda x: customer_net_payments[x] - 1 + COST_FACTOR)
 unit_cost_mx_raw = (product_data['WHOLESALE_PRICE'] * adj_factor).round(2)
 unit_cost_mx_unif = _unify_similar_costs(unit_cost_mx_raw.tolist())
 cost_keys = list(unit_cost_mx_unif.unique())
@@ -151,7 +152,7 @@ unit_other_charges_mx = _compute_unit_other_charges(product_data, unit_weight)
 
 unit_basic_cost_mx = (unit_origin_cost_mx + unit_other_charges_mx + unit_freight_mx + unit_commission_mx + unit_tax_mx +
                       unit_retention_mx * retention_rate)
-net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['BUS_KEY']]
+net_wholesale_price = product_data['WHOLESALE_PRICE'] * [customer_net_payments[x] for x in product_data['BRAND']]
 unit_margin = 1 - (unit_basic_cost_mx / 1.16) / net_wholesale_price
 
 basic_cost = pd.DataFrame({'STYLE': product_data['STYLE'], 'QUANTITY': product_data['QUANTITY'],
