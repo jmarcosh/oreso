@@ -1,5 +1,5 @@
-
-from inventory.update_inventory_utils import create_and_save_techsmart_txt_file, save_checklist
+from inventory.common_app import create_and_save_techsmart_txt_file
+from inventory.process_orders_utils import save_checklist
 
 
 

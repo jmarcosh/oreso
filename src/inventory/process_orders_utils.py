@@ -1,11 +1,10 @@
 import os
-import re
 import numpy as np
 import pandas as pd
 import streamlit as st
-from datetime import date, datetime
+from datetime import datetime
 
-from inventory.common_app import create_and_save_br_summary_table, filter_active_logs
+from inventory.common_app import create_and_save_br_summary_table, filter_active_logs, convert_numeric_id_cols_to_text
 from inventory.varnames import ColNames as C
 
 def get_all_csv_files_in_directory(directory_path):
@@ -33,32 +32,27 @@ def read_temp_files(temp_files):
     return po_df
 
 
-def read_files(sp, temp_paths, update_from_sharepoint):
+def read_files(sp, temp_paths, log_id):
     config = sp.read_json("config/config.json")
     inventory_df = sp.read_csv('INVENTARIO/INVENTARIO.csv')
-    if update_from_sharepoint:
-        po_df = sp.read_excel(f'CATALOGO/{update_from_sharepoint}.xlsx')
-        action = po_type = 'update'
+    if sp.is_local:
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        po_read_path = os.path.join(BASE_DIR, "../../files/drag_and_drop")  ##for local debugging
+        temp_paths = get_all_csv_files_in_directory(po_read_path)
+    po_df = read_temp_files(temp_paths)
+    sp.save_csv(po_df, f"logs/FILES/{log_id}.csv")
+    po_type = auto_assign_po_type(po_df)
+    cols_rename = {k: v for k, v in config[f'{po_type.lower()}_rename'].items() if k in po_df.columns}
+    po_df = po_df.rename(columns=cols_rename)
+    if po_type in config.get("customers"):
+        matching_options = [C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
+        matching_columns = auto_assign_matching_columns(po_df, matching_options)
+        cols = [*matching_columns, *[c for c in cols_rename.values() if c not in matching_options]]
+        action = 'withdrawal'
+    else: # po_type == 'supplier':
         matching_columns = ['index']
-        cols = po_df.columns.tolist()
-    else: # uploaded files
-        if sp.is_local:
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            po_read_path = os.path.join(BASE_DIR, "../../files/drag_and_drop")  ##for local debugging
-            temp_paths = get_all_csv_files_in_directory(po_read_path)
-        po_df = read_temp_files(temp_paths)
-        po_type = auto_assign_po_type(po_df)
-        cols_rename = {k: v for k, v in config[f'{po_type.lower()}_rename'].items() if k in po_df.columns}
-        po_df = po_df.rename(columns=cols_rename)
-        if po_type in config.get("customers"):
-            matching_options = [C.RD, C.MOVEX_PO, C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
-            matching_columns = auto_assign_matching_columns(po_df, matching_options)
-            cols = [*matching_columns, *[c for c in cols_rename.values() if c not in matching_options]]
-            action = 'withdrawal'
-        else: # po_type == 'receipt':
-            matching_columns = ['index']
-            cols = list(cols_rename.values())
-            action = 'receipt'
+        cols = list(cols_rename.values())
+        action = 'receipt'
     for df in [po_df, inventory_df]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     return ((po_df.reset_index()
@@ -66,19 +60,15 @@ def read_files(sp, temp_paths, update_from_sharepoint):
              .reset_index(drop=True)),
             inventory_df, config, po_type, matching_columns, action)
 
-def convert_numeric_id_cols_to_text(df, cols):
-    for col in cols:
-        if col in df.columns:
-            df[col] = (pd.to_numeric(df[col], errors='coerce').fillna(df[col].fillna(0))
-                       .astype(str).replace(r'\..*$', '', regex=True))
-
 def auto_assign_po_type(df):
     if '# Prov' in df.columns:
         return 'liverpool'
     elif 'Num. Prov' in df.columns:
         return 'suburbia'
-    elif 'PCS_BOX' in df.columns:
-        return 'receipt'
+    elif 'SEASON' in df.columns:
+        return 'supplier'
+    elif 'FACTORY' in df.columns:
+        return 'price_tag'
     return 'interno'
 
 def auto_assign_matching_columns(df, lst):
@@ -122,29 +112,6 @@ def allocate_stock(po, inventory, cols):
         delivered.append(delivered_sku)
     return np.concatenate(delivered)
 
-def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_save_path):
-    ts_rename = config["ts_rename"]
-    ts_columns_txt = config["ts_columns_txt"]
-    ts_columns_csv = config["ts_columns_csv"]
-    ts = po.copy()
-    ts = ts[ts[C.DELIVERED] != 0].reset_index(drop=True)
-    ts = ts.rename(columns=ts_rename)
-    ts['Tipo'] = np.where(ts['Cantidad'] > 0, 'Salida', 'Entrada')
-    ts['Cantidad'] = ts['Cantidad'].abs()
-    ts['FECHA'] = date.today().strftime('%d/%m/%Y')
-    ts['Cliente final'] = customer.title() if isinstance(customer, str) else [x.title() for x in customer]
-    ts['Unidad'] = 'pzas'
-    ts['Caja final'] = ts['Caja inicial']
-    add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
-    # po[(po[STORE_ID] == 688) & (po[SKU] == 1035942641)]
-    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
-    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.csv")
-    return ts[ts_columns_csv]
-
-def add_nan_cols(df, cols):
-    for col in cols:
-        if col not in df.columns:
-            df[col] = np.nan
 
 def save_checklist(sp, po_style, po_store, techsmart, config, po_nums, files_save_path):
     cols = config['checklist_columns']
@@ -197,41 +164,26 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
     sp.create_folder_path(files_save_path)
     return files_save_path
 
-def warn_processed_orders(logs, po, po_type, update_from_sharepoint):
-    po_column = po[C.RD] if (update_from_sharepoint or (po_type == 'receipt')) else po[C.PO_NUM]
-    po_nums = [str(x) for x in po_column.unique()]
-    active_logs = filter_active_logs(logs)
-    prev_po_nums = []
-    for item in active_logs["po"].dropna():
-        # split on _ if it is followed by a digit
-        parts = re.split(r'_(?=\d)', item)
-        parts = [re.sub(r"\.0$", "", x) for x in parts]
-        prev_po_nums.extend(parts)
-    intersection = list(set(po_nums) & set(prev_po_nums))
-    if not update_from_sharepoint and (len(intersection) > 0) and not st.session_state.get("ignore_processed", False):
-        warn_preprocessed_orders_and_stop(intersection)
-    return po_nums
 
-
-def warn_preprocessed_orders_and_stop(intersection):
-    st.error(f"PO {intersection} was already processed.")
-    st.stop()
-
-def add_dash_before_size(style_col):
+def add_dash_before_size(style_col, config):
     style_col = style_col.str.replace(" ", "")
-    sizes = ['24MO', '18MO', '12MO', '6MO', '3MO', '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
-             '16', '14', '12', '10', '8', '6', '4']
-    sizes_pattern = '|'.join(map(re.escape, sizes))  # join with | for regex
+    sizes = config.get("sizes")
+    sizes = sorted(sizes, key=len, reverse=True)
 
-    # Single regex: match size at end only if not preceded by dash
-    pattern = r'(?<!-)(' + sizes_pattern + r')$'
-    mask_single_dash = style_col.str.count('-') <= 1
+    def transform(s):
+        # Already has a dash before last token → leave unchanged
+        if '-' in s:
+            base, last = s.rsplit('-', 1)
+            if last in sizes:
+                return s
 
-    # Vectorized replacement
-    return style_col.where(
-        ~mask_single_dash,
-        style_col.str.replace(pattern, r'-\1', regex=True, flags=re.IGNORECASE)
-    )
+        # No dash → check suffix
+        for size in sizes:
+            if s.endswith(size):
+                return s[:-len(size)] + '-' + size
+
+        return s
+    return [transform(style) for style in style_col]
 
 
 

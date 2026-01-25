@@ -9,54 +9,11 @@ import os
 import streamlit as st
 import tempfile
 
-from inventory.update_inventory import run_update_inventory
+from inventory.process_orders_master import run_process_orders
 from inventory.undo_update import undo_inventory_update
+from inventory.update_items import update_items_from_purchases_table
 
 
-def validate_rfid_series(rfid_series_str: str) -> bool:
-    if not rfid_series_str.strip():
-        return True  # empty allowed
-
-    ranges = [r.strip() for r in rfid_series_str.split(',')]
-
-    prefix = None
-    prev_end_num = None
-
-    for r in ranges:
-        # Validate format: prefix + digits - prefix + digits
-        m = re.fullmatch(r'(C\d{8}|SB\d{7})-(C\d{8}|SB\d{7})', r)
-        if not m:
-            return False
-
-        start, end = r.split('-')
-
-        # On first range, save prefix
-        if prefix is None:
-            if start.startswith('C'):
-                prefix = 'C'
-            elif start.startswith('SB'):
-                prefix = 'SB'
-            else:
-                return False
-        # All subsequent ranges must have the same prefix
-        if not start.startswith(prefix) or not end.startswith(prefix):
-            return False
-
-        # Remove prefix to get numeric parts
-        start_num = int(start[len(prefix):])
-        end_num = int(end[len(prefix):])
-
-        # Check start <= end for each range
-        if start_num > end_num:
-            return False
-
-        # Check strictly increasing ranges: start > previous range's end
-        if prev_end_num is not None and start_num <= prev_end_num:
-            return False
-
-        prev_end_num = end_num
-
-    return True
 
 
 def cleanup_temp_files():
@@ -70,12 +27,11 @@ def cleanup_temp_files():
         del st.session_state['temp_files']
 
 
-def run_parser_from_st(delivery_date, temp_paths, update_from_sharepoint):
+def run_parser_from_st(delivery_date, temp_paths):
     # Run parser
     st.info("Running...")
-    sharepoint_paths = run_update_inventory(delivery_date.strftime("%m/%d/%Y"), temp_paths,
-                                            update_from_sharepoint if update_from_sharepoint.strip() else None)
-    st.success("Success! Files saved in Sharepoint")
+    sharepoint_paths = run_process_orders(delivery_date.strftime("%m/%d/%Y"), temp_paths)
+    st.success("Success! Files saved in SharePoint")
     st.markdown(f"- 📂 `{sharepoint_paths}`")
     st.session_state['temp_files'] = temp_paths
 
@@ -92,15 +48,8 @@ def save_temp_files(uploaded_files):
     return temp_paths
 
 
-def uploader_and_parameters():
-    # Optional: use existing file from SharePoint
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        with st.expander("🔄 Update from SharePoint"):
-            update_from_sharepoint = st.text_input(
-                "Season",
-                placeholder="ex. B26"
-            )
+def process_orders_section(delivery_date):
+    st.subheader("🚚 Process Orders")
 
     # Upload Excel files
     uploaded_files = st.file_uploader(
@@ -109,38 +58,10 @@ def uploader_and_parameters():
         accept_multiple_files=True,
     )
 
-    # Parameters
-    delivery_date = st.date_input("Delivery Date")
-    return delivery_date, update_from_sharepoint, uploaded_files
-
-
-def undo_button():
-    # --- Undo (top-right, optional recovery_id) ---
-    col1, col2 = st.columns([5, 1])
-    with col2:
-        with st.popover("↩️ undo"):
-            recovery_id = st.text_input("log id (optional)", key="recovery_id_input")
-            if st.button("Undo", key="undo_button"):
-                try:
-                    recovery_id_int = int(recovery_id) if recovery_id.strip() else None
-                except ValueError:
-                    st.error("Please enter a valid number.")
-                else:
-                    reversed_actions = undo_inventory_update(recovery_id_int)
-                    st.success("Done. The following actions have been reversed")
-                    st.table(reversed_actions)
-
-
-def main():
-    # --- UI ---
-    st.title("📦 INVOC")
-    undo_button()
-    delivery_date, update_from_sharepoint, uploaded_files = uploader_and_parameters()
-
-    col1, col2, col3 = st.columns([1, 1, 1])  # adjust widths as needed
+    col1, col2 = st.columns([1, 4])
     with col1:
-        start_clicked = st.button("Start")
-    with col3:
+        start_clicked = st.button("Start", type="primary")
+    with col2:
         st.checkbox(
             "Ignore processed POs",
             key="ignore_processed",
@@ -149,7 +70,7 @@ def main():
 
     # Run
     if start_clicked:
-        if not uploaded_files and not update_from_sharepoint:
+        if not uploaded_files:
             st.error("Upload a file first")
             st.stop()
         if not delivery_date:
@@ -157,8 +78,71 @@ def main():
             st.stop()
 
         temp_paths = save_temp_files(uploaded_files)
+        run_parser_from_st(delivery_date, temp_paths)
 
-        run_parser_from_st(delivery_date, temp_paths, update_from_sharepoint)
+
+def update_items_section(delivery_date):
+    with st.expander("📝 Update Items from SharePoint"):
+        update_table_name = st.text_input(
+            "Table Name",
+            placeholder="ex. S26",
+            key="update_table_name"
+        )
+
+        if st.button("Update", key="update_button"):
+            if not update_table_name or not update_table_name.strip():
+                st.error("Enter table name")
+                st.stop()
+            if not delivery_date:
+                st.error("Enter delivery date")
+                st.stop()
+
+            st.info("Updating items from Cloud...")
+            try:
+                files_save_path = update_items_from_purchases_table(
+                    update_table_name.strip(),
+                    delivery_date.strftime("%m/%d/%Y")
+                )
+                st.success("Update completed successfully!")
+                if files_save_path:
+                    st.markdown(f"- 📂 Files saved: `{files_save_path}`")
+            except Exception as e:
+                st.error(f"Update failed: {str(e)}")
+
+
+def undo_section():
+    with st.expander("↩️ Undo Inventory Update"):
+        recovery_id = st.text_input("Log ID (optional - leave empty for last update)", key="recovery_id_input")
+
+        if st.button("Undo", key="undo_button"):
+            try:
+                recovery_id_int = int(recovery_id) if recovery_id.strip() else None
+            except ValueError:
+                st.error("Please enter a valid number.")
+            else:
+                reversed_actions = undo_inventory_update(recovery_id_int)
+                st.success("Done. The following actions have been reversed")
+                st.table(reversed_actions)
+
+
+def main():
+    st.title("📦 INVOC")
+
+    # Shared parameter
+    delivery_date = st.date_input("Delivery Date", help="Delivery date for orders")
+
+    # Main action: Process Orders (most used)
+    process_orders_section(delivery_date)
+
+    st.divider()
+
+    # Secondary actions (less frequently used)
+    col1, col2 = st.columns(2)
+    with col1:
+        update_items_section(delivery_date)
+    with col2:
+        undo_section()
+
     cleanup_temp_files()
 
 

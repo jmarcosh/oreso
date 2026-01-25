@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 import re
 import streamlit as st
-from inventory.update_inventory_utils import (create_and_save_techsmart_txt_file, save_checklist,
-                                              add_nan_cols)
+
+from inventory.common_app import create_and_save_techsmart_txt_file, add_nan_cols
+from inventory.process_orders_utils import save_checklist
 from inventory.varnames import ColNames as C
 
 def find_best_carton_combo(total_volume, max_cartons, capacities, costs):
@@ -179,7 +180,10 @@ def assign_store_name(sp, po_df, customer):
         return po_df[C.STORE_NAME].fillna("NotFound")
     return np.zeros(len(po_df))
 
-def run_process_purchase_orders(sp, po, config, customer, delivery_date, files_save_path, log_id):
+def run_process_customer_orders(sp, po, config, customer, delivery_date, files_save_path, log_id):
+
+
+
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
     conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
         [C.STYLE, C.WHOLESALE_PRICE, C.CUSTOMER_COST]].drop_duplicates() #pc = price_conflict

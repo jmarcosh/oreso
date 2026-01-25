@@ -6,7 +6,7 @@ import re
 
 from sharepoint_api.sharepoint_client import SharePointClient
 
-from inventory.update_inventory_utils import add_dash_before_size
+from inventory.process_orders_utils import add_dash_before_size
 
 # INPUTS
 
@@ -28,7 +28,7 @@ costing_structure = {
     'moncaramel_thermal': 1.15,
 }
 
-customer_net_payments = dict(splendid=0.88, thatsit=0.88, piqueniqu=0.88, tahari=0.79, moncaramel=0.88)
+customer_net_payments = dict(splendid=0.88, thatsit=0.88, piquenique=0.88, tahari=0.79, moncaramel=0.88)
 
 retention_rate = 0.1015
 

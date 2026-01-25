@@ -6,7 +6,10 @@ from inventory.varnames import ColNames as C
 
 
 def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, columns, log_id):
-    split_inventory = split_df_by_columns(inventory.copy(), columns)
+    mask = inventory[C.WAREHOUSE].isin(['on_order', 'inactive'])
+    inventory_copy = inventory[~mask].copy()
+    out_of_order = inventory[mask]
+    split_inventory = split_df_by_columns(inventory_copy, columns)
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
             on=columns, how='left')
@@ -27,7 +30,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     po = pd.concat(po_wh)
     po = split_ordered_quantity_by_warehouse_codes(po, columns)
     updated_inv_lst = updated_inv + split_inventory[it+1:]
-    updated_inv = concat_inv_lst(updated_inv_lst)
+    updated_inv = concat_inv_lst(updated_inv_lst + [out_of_order])
     return po.sort_values([C.STORE_ID, *columns]).reset_index(drop=True), updated_inv
 
 

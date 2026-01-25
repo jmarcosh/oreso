@@ -56,3 +56,5 @@ class ColNames:
     PRODUCT = 'PRODUCTO'
     SUBTOTAL_COST = 'SUBTOTAL_COSTO'
     FOB = 'FOB'
+    X_FTY = 'X_FTY'
+    WAREHOUSE = 'ALMACEN'

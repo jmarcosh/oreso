@@ -141,7 +141,7 @@ data = {
     "store_indexes": [C.STORE_ID, C.BOX_ID, C.BOX_TYPE],
 
     "dn_structure": {
-    "NOTA DE REMISION": dn_num + 1,
+    "NOTA DE REMISION": dn_num,
     "Cliente:": "",
     "RFC:": "GOR120208K23",
     "Dirección:": "Monte Elbruz N. 124 piso 2 desp 212 Col. Palmitas C.P.  11560 Del. Miguel Hidalgo",
@@ -172,8 +172,8 @@ data = {
         C.DELIVERED, C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.CUSTOMER_COST
     ],
 
-    "receipt_rename": {
-        C.RD: C.RD,
+    "supplier_rename": {
+        "SEASON": C.RD,
         "FACTORY": C.FACTORY,
         "BRAND": C.BRAND,
         "BUS_KEY": C.BUS_KEY,
@@ -187,14 +187,63 @@ data = {
         "PRODUCT": C.PRODUCT,
         "PCS_PER_PACK": C.PCS_PACK,
         "PCS_BOX": C.PCS_BOX,
-        "COST": C.COST,
         "WHOLESALE_PRICE": C.WHOLESALE_PRICE,
         "RETAIL_PRICE": C.RETAIL_PRICE,
+        "X_FTY": C.X_FTY,
+    },
 
-    }
+    "labels_rename": {C.RD: C.RD,
+                      "FACTORY": C.FACTORY,
+                      "BRAND": C.BRAND,
+                      C.MOVEX_PO: C.MOVEX_PO,
+                      "STYLE": C.STYLE,
+                      "DESCRIPTION": C.DESCRIPTION,
+                      C.UPC: C.UPC,
+                      C.SKU: C.SKU,
+                      "QUANTITY": C.RECEIVED,
+                      "PRODUCT": C.PRODUCT,},
+
+    "brand_product_categories": {
+        ('splendid', 'top'): [0.15, 0.08],
+        ('splendid', 'panty'): [0.15, 0.04],
+        ('thatsit', 'top'): [0.15, 0.0],
+        ('thatsit', 'panty'): [0.15, 0.0],
+        ('thatsit', 'boxer'): [0.15, 0.0],
+        ('thatsit', 'thermal'): [0.15, 0.0],
+        ('piquenique', 'panty'): [0.15, 0.0],
+        ('piquenique', 'boxer'): [0.15, 0.0],
+        ('tahari', 'top'): [0.15, 0.07],
+        ('tahari', 'panty'): [0.15, 0.07],
+        ('moncaramel', 'thermal'): [0.15, 0.0],
+        ('liverpool', 'price_tag'): [0, 0],
+        ('suburbia', 'price_tag'): [0, 0],
+    },
+
+    "factories": ["skypai", "apex", "clifton", "unitex", "glorymaster", "zhejiang", "xiamen", "etiflex"],
+
+    "business_keys": ["basics", "fashion"],
+    
+    "sizes": ['24MO', '18MO', '12MO', '6MO', '3MO', '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
+             '16', '14', '12', '10', '8', '6', '4'],
+
+    "brand_net_payments": {"splendid": 0.88, "thatsit": 0.88, "piquenique": 0.88, "tahari": 0.79, "moncaramel": 0.88},
+    "cost_factor": 0.9,
+    "proforma_rename": {C.INVOICE_NUM: C.INVOICE_NUM,
+                        C.RD: C.RD,
+                        C.MOVEX_PO: C.MOVEX_PO,
+                        C.STYLE: C.STYLE,
+                        C.DESCRIPTION: C.DESCRIPTION,
+                        C.UPC: C.UPC,
+                        C.RECEIVED: "CANTIDAD",
+                        C.COST: "PRECIO",},
+    "item_status": {"warehouse": ["techsmart"],
+                    "inactive": ["inactive"],
+                    "on_order": ["on_order"]}
+
 }
 
 
+data["brand_product_categories"] = {"_".join(k): v for k, v in data["brand_product_categories"].items()}
 
 sp.save_json(data, "config/config.json", save_local=True)
 # with open("/home/jmarcosh/Projects/oreso/files/inventory/config_vars.json", "w") as f:
