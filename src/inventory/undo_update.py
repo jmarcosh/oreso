@@ -52,8 +52,9 @@ def undo_inventory_update(recovery_id=None):
     undo_rfid(sp, recovery_id, config)
     undo_inventory(sp, recovery_id, log_id, config)
     undo_records(sp, recovery_id, config)
-    record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
     undone_logs = active_logs.loc[active_logs['log_id'] >= recovery_id]
+    undo_purchases_table(recovery_id, sp, undone_logs)
+    record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
     for folder_path in undone_logs['files_save_path']:
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}"
@@ -61,8 +62,19 @@ def undo_inventory_update(recovery_id=None):
     return undone_logs[['log_id', 'customer', 'action', 'po']]
 
 
+def undo_purchases_table(recovery_id, sp: SharePointClient, undone_logs):
+    undone_receipts = \
+    undone_logs.loc[undone_logs['action'] == 'receipt', 'files_save_path'].str.extract(r'/([^/]+)\.xlsx')[0]
+    for table in undone_receipts:
+        purchase = sp.read_excel(f"COMPRAS/{table}.xlsx")
+        purchase = purchase.loc[(purchase[C.LOG_ID] < recovery_id)]
+        purchase[C.RECEIVED_DATE] = pd.to_datetime(purchase[C.RECEIVED_DATE]).dt.date
+        purchase[C.X_FTY] = pd.to_datetime(purchase[C.X_FTY]).dt.date
+        sp.save_excel(purchase, f"COMPRAS/{table}.xlsx")
+
+
 if __name__ == '__main__':
-    undo_inventory_update(20250930013755)
+    undo_inventory_update()
 
 
 # TODO add updated files to log

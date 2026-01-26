@@ -38,15 +38,14 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po[C.WAREHOUSE] = "on_order"
     po[C.INVOICE_NUM] = np.nan
     rd = po.loc[0, C.RD]
-    update_master_entry_file(sp, po, rd[:3])
+    files_save_path = update_master_entry_file(sp, po, rd[:3])
     po = add_inventory_cols(po, inventory)
     updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
-    files_save_path = "Update warehouse to generate files"
     return updated_inv, files_save_path
 
 
 def add_inventory_cols(po, inventory):
-    po[C.INVENTORY] = po[C.RECEIVED]
+    po[C.INVENTORY] = 0
     po[C.SIZE] = extract_size_from_style(po)
     missing_cols = inventory.columns.difference(po.columns)
     po[missing_cols] = np.nan
@@ -62,10 +61,10 @@ def update_master_entry_file(sp, po, rd):
     - files_save_path: str, the SharePoint path to the Excel file.
     - po: pd.DataFrame, the new purchase order data to append.
     """
-
+    purchases_file_path = f"COMPRAS/{rd}.xlsx"
     try:
         # Try to read the existing master file from SharePoint
-        season_po = sp.read_excel(f"COMPRAS/{rd}.xlsx")
+        season_po = sp.read_excel(purchases_file_path)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             # File does not exist yet — create a new DataFrame
@@ -79,4 +78,6 @@ def update_master_entry_file(sp, po, rd):
     season_po = pd.concat([season_po, po], ignore_index=True).drop_duplicates(subset=[C.RD, C.MOVEX_PO, C.UPC],
                                                                               keep="last")
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
-    sp.save_excel(season_po, f"COMPRAS/{rd}.xlsx")
+    season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
+    sp.save_excel(season_po, purchases_file_path)
+    return purchases_file_path
