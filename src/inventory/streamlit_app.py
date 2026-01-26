@@ -122,7 +122,11 @@ def undo_section():
             else:
                 reversed_actions = undo_inventory_update(recovery_id_int)
                 st.success("Done. The following actions have been reversed")
-                st.table(reversed_actions)
+                st.dataframe(
+                    reversed_actions,
+                    use_container_width=True,
+                    hide_index=True
+                )
 
 
 def main():

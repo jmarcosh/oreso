@@ -92,7 +92,7 @@ def update_inventory_from_purchases(common_index: Index, log_id: int, purchases:
         .all(axis=1)
     )
     update_index = common_index[update_mask]
-    purchases_with_data =  purchases.drop("0", level="MOVEX_PO")
+    purchases_with_data =  purchases.drop("0", level="MOVEX_PO", errors="ignore")
     updated_inv.update(purchases_with_data[cols])
     updated_inv.loc[update_index, C.LOG_ID] = log_id
     purchases.loc[update_index, C.LOG_ID] = log_id
@@ -308,6 +308,8 @@ def update_items_from_purchases_table(table, delivery_date):
     if not po_nums_str:
         po_nums_str = table
     record_log(sp, logs, log_id, po_type, action, "success", po_nums_str, files_save_path)
+    if not files_save_path:
+        files_save_path = "Inventory updated. No new files generated."
     return files_save_path
     # inventory["_row_order"] = range(len(inventory))
 
@@ -325,4 +327,4 @@ def restore_inventory_row_and_columns_order(inventory: DataFrame, updated_inv: D
 if __name__ == '__main__':
     DELIVERY_DATE = "01/21/2026"
 
-    update_items_from_purchases_table('S22', DELIVERY_DATE)
+    update_items_from_purchases_table('S26', DELIVERY_DATE)
