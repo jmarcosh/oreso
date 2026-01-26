@@ -55,7 +55,7 @@ def undo_inventory_update(recovery_id=None):
     undone_logs = active_logs.loc[active_logs['log_id'] >= recovery_id]
     undo_purchases_table(recovery_id, sp, undone_logs)
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
-    for folder_path in undone_logs['files_save_path']:
+    for folder_path in undone_logs.loc[undone_logs['action'] == 'withdrawal','files_save_path']:
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}"
             sp.rename_folder(folder_path, new_name)
