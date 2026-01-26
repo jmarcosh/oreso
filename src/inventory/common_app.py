@@ -58,7 +58,6 @@ def update_inventory_in_memory(sp, updated_inv, inventory, log_id, config):
     # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
     #     updated_inv[col] = updated_inv[col].astype(int)
     sp.save_csv(updated_inv, 'INVENTARIO/INVENTARIO.csv')
-    updated_inv.to_csv('/home/jmarcosh/Downloads/INVENTARIO.csv', index=False)
     sp.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
     create_and_save_inventory_summary_table(sp, updated_inv, config)
 

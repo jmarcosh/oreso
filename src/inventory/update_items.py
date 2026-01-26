@@ -247,10 +247,8 @@ def find_common_rows_with_inventory(inventory: DataFrame, purchases: DataFrame) 
 
 
 def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) -> tuple[DataFrame, DataFrame, dict, str, str]:
-    purchases = pd.read_excel(f'/home/jmarcosh/Downloads/{table}.xlsx', engine="openpyxl")
-    # purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
-    inventory = pd.read_csv('/home/jmarcosh/Downloads/INVENTARIO.csv', encoding='latin1')
-    # inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
+    purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
+    inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
         convert_numeric_id_cols_to_text(df, [C.UPC, C.UPC, C.SKU, C.MOVEX_PO])
     config = sp.read_json("config/config.json")
@@ -305,8 +303,7 @@ def update_items_from_purchases_table(table, delivery_date):
                                                            inactive_to_warehouse, log_id, purchases, updated_inv)
     updated_inv = restore_inventory_row_and_columns_order(inventory, updated_inv, active_to_inactive)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
-    purchases.reset_index()[purchases_original_column_order].to_excel(f'/home/jmarcosh/Downloads/{table}.xlsx', index=False)
-    # sp.save_excel(purchases.reset_index()[purchases_original_column_order], f"COMPRAS/{table}.xlsx")
+    sp.save_excel(purchases.reset_index()[purchases_original_column_order], f"COMPRAS/{table}.xlsx")
     po_nums_str = get_po_nums(files_save_path)
     if not po_nums_str:
         po_nums_str = table
