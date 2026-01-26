@@ -33,6 +33,7 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
                             .str.replace(r"\D", "", regex=True)
                             .str.pad(6, side='right', fillchar='0').str[:6]
                             + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
+    po[C.COST] = np.nan # this column will be used when updating the receipt of the goods
     po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
     po[C.STYLE] = add_dash_before_size(po[C.STYLE], config)
     po[C.WAREHOUSE] = "on_order"
