@@ -125,7 +125,8 @@ def undo_section():
                 st.dataframe(
                     reversed_actions,
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
+                    column_config={"LOG_ID": st.column_config.NumberColumn(format="%.0f")}  # no commas, no decimals
                 )
 
 

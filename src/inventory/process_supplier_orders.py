@@ -6,7 +6,7 @@ import streamlit as st
 
 from inventory.common_app import extract_size_from_style
 from inventory.process_orders_utils import add_dash_before_size
-from inventory.update_items import validate_updatable_table
+from inventory.update_items import validate_unique_ids_in_updatable_table
 from inventory.varnames import ColNames as C
 
 
@@ -78,7 +78,7 @@ def update_master_entry_file(sp, po, rd, config):
 
     # Append new data and save back to SharePoint
     season_po = pd.concat([season_po, po], ignore_index=True)
-    validate_updatable_table(season_po, config)
+    validate_unique_ids_in_updatable_table(season_po, config)
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
     season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
     sp.save_excel(season_po, purchases_file_path)

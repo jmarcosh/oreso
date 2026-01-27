@@ -248,22 +248,54 @@ def find_common_rows_with_inventory(inventory: DataFrame, purchases: DataFrame) 
 
 def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) -> tuple[DataFrame, DataFrame, dict, str, str]:
     purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
+    validate_no_changes_in_id_cols(purchases, sp, table)
     inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     config = sp.read_json("config/config.json")
     po_type = action = 'update'
-    validate_updatable_table(purchases, config)
+    validate_unique_ids_in_updatable_table(purchases, config)
     return purchases, inventory, config, po_type, action
 
 
-def validate_updatable_table(purchases: DataFrame, config: dict):
+def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, table: str):
+    hard_memory = sp.read_csv(f"COMPRAS/BACKUPS/{table}.csv")
+
+    # Validate that protected columns haven't been edited
+    protected_cols = [C.MOVEX_PO, C.UPC]
+
+    # Vectorized comparison to find differences
+    mask = (purchases[protected_cols] != hard_memory[protected_cols]).any(axis=1)
+
+    if mask.any():
+        diff_rows = purchases.index[mask]
+        differences = []
+
+        for col in protected_cols:
+            col_diff_mask = purchases.loc[diff_rows, col] != hard_memory.loc[diff_rows, col]
+            col_diff_idx = diff_rows[col_diff_mask]
+
+            for idx in col_diff_idx:
+                differences.append({
+                    'STYLE': purchases.loc[idx, C.STYLE],
+                    'Column': col,
+                    'Correct Value': hard_memory.loc[idx, col],
+                    'Edited Value': purchases.loc[idx, col]
+                })
+
+        st.error(
+            f"Protected columns ({', '.join(protected_cols)}) cannot be edited. Please revert the following changes:")
+        st.dataframe(pd.DataFrame(differences), use_container_width=True, hide_index=True)
+        st.stop()
+
+
+def validate_unique_ids_in_updatable_table(purchases: DataFrame, config: dict):
     duplicated = purchases.duplicated(subset=[C.MOVEX_PO, C.UPC], keep=False)
     has_duplicates = duplicated.any()
     if has_duplicates:
         st.write("Fix the MOVEX PO for duplicated products.")
         st.dataframe(
-            purchases[duplicated],
+            purchases.loc[duplicated, [C.STYLE, C.MOVEX_PO, C.UPC]],
             use_container_width=True,
             hide_index=True
         )
@@ -307,7 +339,7 @@ def update_items_from_purchases_table(table, delivery_date):
                                                            inactive_to_warehouse, log_id, purchases, updated_inv)
     updated_inv = restore_inventory_row_and_columns_order(inventory, updated_inv, active_to_inactive)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
-    sp.save_excel(purchases.reset_index()[purchases_original_column_order], f"COMPRAS/{table}.xlsx")
+    save_updated_purchases_table(purchases, purchases_original_column_order, sp, table)
     po_nums_str = get_po_nums(files_save_path)
     if not po_nums_str:
         po_nums_str = table
@@ -316,6 +348,13 @@ def update_items_from_purchases_table(table, delivery_date):
         files_save_path = "Inventory updated. No new files generated."
     return files_save_path
     # inventory["_row_order"] = range(len(inventory))
+
+
+def save_updated_purchases_table(purchases: DataFrame, purchases_original_column_order: Index,
+                                 sp: SharePointClient, table):
+    purchases = purchases.reset_index()[purchases_original_column_order]
+    sp.save_excel(purchases, f"COMPRAS/{table}.xlsx")
+    sp.save_csv(purchases, f"COMPRAS/BACKUPS/{table}.xlsx")
 
 
 def restore_inventory_row_and_columns_order(inventory: DataFrame, updated_inv: DataFrame, active_to_inactive: Index) -> DataFrame:
