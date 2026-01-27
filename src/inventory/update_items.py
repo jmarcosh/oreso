@@ -9,7 +9,7 @@ from pandas import DataFrame, Index, Series
 from api_integrations.sharepoint_client import SharePointClient
 from inventory.common_app import (stop_if_locked_files, record_log, update_inventory_in_memory,
                                   extract_size_from_style, warn_processed_orders, create_and_save_techsmart_txt_file,
-                                  convert_numeric_id_cols_to_text)
+                                  convert_numeric_id_cols_to_text, validate_unique_ids_and_status_in_updatable_table)
 from inventory.varnames import ColNames as C
 
 def _unify_similar_costs(lst):
@@ -248,13 +248,13 @@ def find_common_rows_with_inventory(inventory: DataFrame, purchases: DataFrame) 
 
 def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) -> tuple[DataFrame, DataFrame, dict, str, str]:
     purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
+    config = sp.read_json("config/config.json")
     validate_no_changes_in_id_cols(purchases, sp, table)
+    validate_unique_ids_and_status_in_updatable_table(purchases, config)
     inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
-    config = sp.read_json("config/config.json")
     po_type = action = 'update'
-    validate_unique_ids_in_updatable_table(purchases, config)
     return purchases, inventory, config, po_type, action
 
 
@@ -289,24 +289,6 @@ def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, t
                      column_config={"Correct Value": st.column_config.NumberColumn(format="%.0f"),
                                     "Edited Value": st.column_config.NumberColumn(format="%.0f"),})
         st.stop()
-
-
-def validate_unique_ids_in_updatable_table(purchases: DataFrame, config: dict):
-    duplicated = purchases.duplicated(subset=[C.MOVEX_PO, C.UPC], keep=False)
-    has_duplicates = duplicated.any()
-    if has_duplicates:
-        st.write("Fix the MOVEX PO for duplicated products.")
-        st.dataframe(
-            purchases.loc[duplicated, [C.STYLE, C.MOVEX_PO, C.UPC]],
-            use_container_width=True,
-            hide_index=True
-        )
-        st.stop()
-    valid_status = set({item for lst in config.get("item_status").values() for item in lst})
-    is_valid_status = set(purchases[C.WAREHOUSE].unique()) <= valid_status
-    if not is_valid_status:
-        st.write(f"{C.WAREHOUSE} values must be one of {valid_status}")
-        
 
 
 

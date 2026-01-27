@@ -39,11 +39,24 @@ def create_and_save_br_summary_table(sp, po_br, config):
 
 def create_and_save_inventory_summary_table(sp, updated_inv, config):
     inv_summ_indexes = config.get('inventory_summ_indexes')
-    inv_summ = updated_inv.groupby(inv_summ_indexes)[C.INVENTORY].sum().reset_index()
+    warehouses = [item for lst in config.get("item_status").values() for item in lst]
+    warehouses = [w for w in warehouses if w in updated_inv[C.WAREHOUSE].unique()]
+    inv_pivot = updated_inv.pivot_table(
+        index=inv_summ_indexes,
+        columns=C.WAREHOUSE,
+        values=C.INVENTORY,
+        aggfunc='sum',
+        fill_value=0)
     on_order = updated_inv[updated_inv[C.WAREHOUSE] == 'on_order']
-    on_order_pivot = on_order.pivot(index=inv_summ_indexes, columns=C.RECEIVED_DATE, values=C.RECEIVED).reset_index()
-    inv_summ = inv_summ.merge(on_order_pivot, on=inv_summ_indexes, how='left')
-    sp.save_excel(inv_summ, 'INVENTARIO/SUMMARY.xlsx')
+    on_order_summ = on_order.groupby(inv_summ_indexes)[C.RECEIVED].sum()
+    inv_pivot['on_order'] = inv_pivot.index.map(on_order_summ)
+    inv_pivot = inv_pivot[warehouses].reset_index()
+
+# inv_summ = updated_inv.groupby(inv_summ_indexes)[C.INVENTORY].sum().reset_index()
+    # on_order = updated_inv[updated_inv[C.WAREHOUSE] == 'on_order']
+    # on_order_pivot = on_order.pivot(index=inv_summ_indexes, columns=C.RECEIVED_DATE, values=C.RECEIVED).reset_index()
+    # inv_summ = inv_summ.merge(on_order_pivot, on=inv_summ_indexes, how='left')
+    sp.save_excel(inv_pivot.reset_index(), 'INVENTARIO/SUMMARY.xlsx')
 
 def filter_active_logs(logs):
     active_logs = logs.loc[logs['status'] == 'success'].copy()
@@ -119,6 +132,23 @@ def add_nan_cols(df, cols):
         if col not in df.columns:
             df[col] = np.nan
 
+def validate_unique_ids_and_status_in_updatable_table(purchases: DataFrame, config: dict):
+    duplicated = purchases.duplicated(subset=[C.MOVEX_PO, C.UPC], keep=False)
+    has_duplicates = duplicated.any()
+    if has_duplicates:
+        st.write("Fix the MOVEX PO for duplicated products.")
+        st.dataframe(
+            purchases.loc[duplicated, [C.STYLE, C.MOVEX_PO, C.UPC]],
+            use_container_width=True,
+            hide_index=True
+        )
+        st.stop()
+    valid_status = set({item for lst in config.get("item_status").values() for item in lst})
+    is_valid_status = set(purchases[C.WAREHOUSE].unique()) <= valid_status
+    if not is_valid_status:
+        st.write(f"{C.WAREHOUSE} values must be one of {valid_status}")
+        st.stop()
+
 def validate_rfid_series(rfid_series_str: str) -> bool:
     if not rfid_series_str.strip():
         return True  # empty allowed
@@ -163,3 +193,5 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
         prev_end_num = end_num
 
     return True
+
+

@@ -4,9 +4,9 @@ import numpy as np
 import requests
 import streamlit as st
 
-from inventory.common_app import extract_size_from_style
+from inventory.common_app import extract_size_from_style, convert_numeric_id_cols_to_text, \
+    validate_unique_ids_and_status_in_updatable_table
 from inventory.process_orders_utils import add_dash_before_size
-from inventory.update_items import validate_unique_ids_in_updatable_table
 from inventory.varnames import ColNames as C
 
 
@@ -67,6 +67,7 @@ def update_master_entry_file(sp, po, rd, config):
     try:
         # Try to read the existing master file from SharePoint
         season_po = sp.read_excel(purchases_file_path)
+        convert_numeric_id_cols_to_text(season_po, [C.UPC, C.SKU, C.MOVEX_PO, C.WAREHOUSE_CODE])
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             # File does not exist yet — create a new DataFrame
@@ -78,7 +79,7 @@ def update_master_entry_file(sp, po, rd, config):
 
     # Append new data and save back to SharePoint
     season_po = pd.concat([season_po, po], ignore_index=True)
-    validate_unique_ids_in_updatable_table(season_po, config)
+    validate_unique_ids_and_status_in_updatable_table(season_po, config)
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
     season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
     sp.save_excel(season_po, purchases_file_path)

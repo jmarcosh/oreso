@@ -224,7 +224,7 @@ data = {
     "business_keys": ["basics", "fashion"],
     
     "sizes": ['24MO', '18MO', '12MO', '6MO', '3MO', '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
-             '16', '14', '12', '10', '8', '6', '4'],
+             '16', '14', '12', '10', '08', '06', '04', '8', '6', '4'],
 
     "brand_net_payments": {"splendid": 0.88, "thatsit": 0.88, "piquenique": 0.88, "tahari": 0.79, "moncaramel": 0.88},
     "cost_factor": 0.9,
@@ -237,8 +237,8 @@ data = {
                         C.RECEIVED: "CANTIDAD",
                         C.COST: "PRECIO",},
     "item_status": {"warehouse": ["techsmart"],
-                    "inactive": ["inactive"],
-                    "on_order": ["on_order"]}
+                    "on_order": ["on_order"],
+                    "inactive": ["inactive"]}
 
 }
 
