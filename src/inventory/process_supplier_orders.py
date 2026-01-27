@@ -82,4 +82,6 @@ def update_master_entry_file(sp, po, rd, config):
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
     season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
     sp.save_excel(season_po, purchases_file_path)
+    sp.save_csv(season_po, f"COMPRAS/BACKUPS/{rd}.csv")
+
     return purchases_file_path

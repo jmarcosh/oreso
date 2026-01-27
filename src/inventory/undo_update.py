@@ -71,6 +71,7 @@ def undo_purchases_table(recovery_id, sp: SharePointClient, undone_logs):
         purchase[C.RECEIVED_DATE] = pd.to_datetime(purchase[C.RECEIVED_DATE]).dt.date
         purchase[C.X_FTY] = pd.to_datetime(purchase[C.X_FTY]).dt.date
         sp.save_excel(purchase, f"COMPRAS/{table}.xlsx")
+        sp.save_csv(purchase, f"COMPRAS/BACKUPS/{table}.csv")
 
 
 if __name__ == '__main__':
