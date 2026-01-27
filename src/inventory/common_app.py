@@ -4,6 +4,8 @@ from datetime import date
 import numpy as np
 import streamlit as st
 import pandas as pd
+from pandas import DataFrame
+
 from inventory.varnames import ColNames as C
 
 
