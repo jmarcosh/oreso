@@ -250,7 +250,7 @@ def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) ->
     purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
     inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
-        convert_numeric_id_cols_to_text(df, [C.UPC, C.UPC, C.SKU, C.MOVEX_PO])
+        convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     config = sp.read_json("config/config.json")
     po_type = action = 'update'
     validate_updatable_table(purchases, config)
