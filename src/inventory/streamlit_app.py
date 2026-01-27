@@ -126,7 +126,7 @@ def undo_section():
                     reversed_actions,
                     use_container_width=True,
                     hide_index=True,
-                    column_config={"LOG_ID": st.column_config.NumberColumn(format="%.0f")}  # no commas, no decimals
+                    column_config={"log_id": st.column_config.NumberColumn(format="%.0f")}  # no commas, no decimals
                 )
 
 
