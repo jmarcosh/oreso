@@ -6,6 +6,7 @@ import streamlit as st
 
 from inventory.common_app import extract_size_from_style
 from inventory.process_orders_utils import add_dash_before_size
+from inventory.update_items import validate_updatable_table
 from inventory.varnames import ColNames as C
 
 
@@ -39,7 +40,7 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po[C.WAREHOUSE] = "on_order"
     po[C.INVOICE_NUM] = np.nan
     rd = po.loc[0, C.RD]
-    files_save_path = update_master_entry_file(sp, po, rd[:3])
+    files_save_path = update_master_entry_file(sp, po, rd[:3], config)
     po = add_inventory_cols(po, inventory)
     updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     return updated_inv, files_save_path
@@ -54,7 +55,7 @@ def add_inventory_cols(po, inventory):
 
 
 
-def update_master_entry_file(sp, po, rd):
+def update_master_entry_file(sp, po, rd, config):
     """
     Updates a master Excel file in SharePoint by appending new purchase order data.
 
@@ -76,8 +77,8 @@ def update_master_entry_file(sp, po, rd):
             return
 
     # Append new data and save back to SharePoint
-    season_po = pd.concat([season_po, po], ignore_index=True).drop_duplicates(subset=[C.RD, C.MOVEX_PO, C.UPC],
-                                                                              keep="last")
+    season_po = pd.concat([season_po, po], ignore_index=True)
+    validate_updatable_table(season_po, config)
     season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
     season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
     sp.save_excel(season_po, purchases_file_path)

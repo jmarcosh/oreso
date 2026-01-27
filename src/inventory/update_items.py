@@ -262,7 +262,11 @@ def validate_updatable_table(purchases: DataFrame, config: dict):
     has_duplicates = duplicated.any()
     if has_duplicates:
         st.write("Fix the MOVEX PO for duplicated products.")
-        st.table(purchases[duplicated])
+        st.dataframe(
+            purchases[duplicated],
+            use_container_width=True,
+            hide_index=True
+        )
         st.stop()
     valid_status = set({item for lst in config.get("item_status").values() for item in lst})
     is_valid_status = set(purchases[C.WAREHOUSE].unique()) <= valid_status

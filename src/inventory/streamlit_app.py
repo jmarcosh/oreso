@@ -111,8 +111,8 @@ def update_items_section(delivery_date):
 
 
 def undo_section():
-    with st.expander("↩️ Undo Inventory Update"):
-        recovery_id = st.text_input("Log ID (optional - leave empty for last update)", key="recovery_id_input")
+    with st.expander("↩️ Undo Actions"):
+        recovery_id = st.text_input("Log ID action to undo - leave empty for last action", key="recovery_id_input")
 
         if st.button("Undo", key="undo_button"):
             try:
