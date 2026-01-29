@@ -6,7 +6,7 @@ import streamlit as st
 
 from inventory.common_app import record_log, filter_active_logs, \
     create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files, read_or_create_file, \
-    save_purchases_file_and_logs
+    save_purchases_file_and_logs, convert_numeric_id_cols_to_text
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
 
@@ -65,17 +65,22 @@ def undo_inventory_update(recovery_id=None):
 
 def undo_purchases_table(recovery_id, sp: SharePointClient, undone_logs):
     undone_receipts = \
-    undone_logs.loc[undone_logs['action'] == 'receipt', 'files_path'].str.extract(r'/([^/]+)\.xlsx')[0]
-    for table in undone_receipts:
+    undone_logs.loc[undone_logs['action'].isin(['receipt', 'on_order']), 'files_path'].str.extract(r'/([^/]+)\.xlsx').iloc[:, 0]
+    undone_updates = undone_logs.loc[(undone_logs['action'] == 'update'), 'po']
+    undone_tables = (pd.concat([undone_receipts, undone_updates], ignore_index=True)
+                     .dropna().unique().tolist())
+    
+    for table in undone_tables:
         purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{table}.csv")
         purchases_logs.set_index([C.MOVEX_PO, C.UPC], inplace=True)
-        purchases_last = purchases_logs[(~purchases_logs.index.duplicated(keep='last')) &
-                                        (purchases_logs[C.LOG_ID] < recovery_id)]
+        pre_recovery = purchases_logs.loc[purchases_logs[C.LOG_ID] < recovery_id]
+        purchases_last = pre_recovery.loc[~pre_recovery.index.duplicated(keep="last")]
         purchases = sp.read_csv(f"COMPRAS/LOGS/{table}.csv")
+        convert_numeric_id_cols_to_text(purchases, [C.MOVEX_PO, C.UPC])
         purchases_columns = purchases.columns
         purchases.set_index([C.MOVEX_PO, C.UPC], inplace=True)
         purchases_index = purchases.index.intersection(purchases_last.index)
-        purchases = purchases_last[purchases_index].reset_index()[purchases_columns]
+        purchases = purchases_last.loc[purchases_index].reset_index()[purchases_columns]
         save_purchases_file_and_logs(sp, purchases, table)
 
 
