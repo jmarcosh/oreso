@@ -5,7 +5,7 @@ import requests
 import streamlit as st
 
 from inventory.common_app import extract_size_from_style, convert_numeric_id_cols_to_text, \
-    validate_unique_ids_and_status_in_updatable_table
+    validate_unique_ids_and_status_in_updatable_table, read_or_create_file, save_purchases_file_and_logs
 from inventory.process_orders_utils import add_dash_before_size
 from inventory.varnames import ColNames as C
 
@@ -40,10 +40,10 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po[C.WAREHOUSE] = "on_order"
     po[C.INVOICE_NUM] = np.nan
     rd = po.loc[0, C.RD]
-    files_save_path = update_master_entry_file(sp, po, rd[:3], config)
+    files_path = update_purchases_table(sp, po, rd[:3], config, log_id)
     po = add_inventory_cols(po, inventory)
     updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
-    return updated_inv, files_save_path
+    return updated_inv, files_path
 
 
 def add_inventory_cols(po, inventory):
@@ -55,34 +55,24 @@ def add_inventory_cols(po, inventory):
 
 
 
-def update_master_entry_file(sp, po, rd, config):
+
+def update_purchases_table(sp, po, rd, config, log_id):
     """
-    Updates a master Excel file in SharePoint by appending new purchase order data.
+    Updates an Excel file in SharePoint by appending new purchase order data.
 
     Parameters:
     - files_save_path: str, the SharePoint path to the Excel file.
     - po: pd.DataFrame, the new purchase order data to append.
     """
     purchases_file_path = f"COMPRAS/{rd}.xlsx"
-    try:
-        # Try to read the existing master file from SharePoint
-        season_po = sp.read_excel(purchases_file_path)
-        convert_numeric_id_cols_to_text(season_po, [C.UPC, C.SKU, C.MOVEX_PO, C.WAREHOUSE_CODE])
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            # File does not exist yet — create a new DataFrame
-            season_po = pd.DataFrame()
-        else:
-            # Other HTTP error occurred — log and exit
-            print(f"Failed to update master entry file: HTTP {e.response.status_code}")
-            return
+    purchases = read_or_create_file(sp, purchases_file_path)
+    if purchases is None:
+        return
 
     # Append new data and save back to SharePoint
-    season_po = pd.concat([season_po, po], ignore_index=True)
-    validate_unique_ids_and_status_in_updatable_table(season_po, config)
-    season_po[C.RECEIVED_DATE] = season_po[C.RECEIVED_DATE].dt.date
-    season_po[C.X_FTY] = season_po[C.X_FTY].dt.date
-    sp.save_excel(season_po, purchases_file_path)
-    sp.save_csv(season_po, f"COMPRAS/BACKUPS/{rd}.csv")
-
+    purchases = pd.concat([purchases, po], ignore_index=True)
+    validate_unique_ids_and_status_in_updatable_table(purchases, config)
+    save_purchases_file_and_logs(sp, purchases, rd, log_id)
     return purchases_file_path
+
+

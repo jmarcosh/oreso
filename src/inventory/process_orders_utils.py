@@ -52,7 +52,7 @@ def read_files(sp, temp_paths, log_id):
     else: # po_type == 'supplier':
         matching_columns = ['index']
         cols = list(cols_rename.values())
-        action = 'receipt'
+        action = 'on_order'
     for df in [po_df, inventory_df]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     return ((po_df.reset_index()

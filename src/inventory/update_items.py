@@ -9,7 +9,8 @@ from pandas import DataFrame, Index, Series
 from api_integrations.sharepoint_client import SharePointClient
 from inventory.common_app import (stop_if_locked_files, record_log, update_inventory_in_memory,
                                   extract_size_from_style, warn_processed_orders, create_and_save_techsmart_txt_file,
-                                  convert_numeric_id_cols_to_text, validate_unique_ids_and_status_in_updatable_table)
+                                  convert_numeric_id_cols_to_text, validate_unique_ids_and_status_in_updatable_table,
+                                  save_purchases_file_and_logs)
 from inventory.varnames import ColNames as C
 
 def _unify_similar_costs(lst):
@@ -259,7 +260,7 @@ def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) ->
 
 
 def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, table: str):
-    hard_memory = sp.read_csv(f"COMPRAS/BACKUPS/{table}.csv")
+    hard_memory = sp.read_csv(f"COMPRAS/LOGS/{table}.csv")
 
     # Validate that protected columns haven't been edited
     protected_cols = [C.MOVEX_PO, C.UPC]
@@ -323,7 +324,7 @@ def update_items_from_purchases_table(table, delivery_date):
                                                            inactive_to_warehouse, log_id, purchases, updated_inv)
     updated_inv = restore_inventory_row_and_columns_order(inventory, updated_inv, active_to_inactive)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
-    save_updated_purchases_table(purchases, purchases_original_column_order, sp, table)
+    save_updated_purchases_table(purchases, purchases_original_column_order, sp, table, log_id)
     po_nums_str = get_po_nums(files_save_path)
     if not po_nums_str:
         po_nums_str = table
@@ -335,10 +336,10 @@ def update_items_from_purchases_table(table, delivery_date):
 
 
 def save_updated_purchases_table(purchases: DataFrame, purchases_original_column_order: Index,
-                                 sp: SharePointClient, table):
+                                 sp: SharePointClient, table, log_id: int):
     purchases = purchases.reset_index()[purchases_original_column_order]
-    sp.save_excel(purchases, f"COMPRAS/{table}.xlsx")
-    sp.save_csv(purchases, f"COMPRAS/BACKUPS/{table}.xlsx")
+    save_purchases_file_and_logs(sp, purchases, table, log_id)
+
 
 
 def restore_inventory_row_and_columns_order(inventory: DataFrame, updated_inv: DataFrame, active_to_inactive: Index) -> DataFrame:

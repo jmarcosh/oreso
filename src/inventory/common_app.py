@@ -2,6 +2,7 @@ from typing import Any
 import re
 from datetime import date
 import numpy as np
+import requests
 import streamlit as st
 import pandas as pd
 from pandas import DataFrame
@@ -14,9 +15,9 @@ def record_active_logs(sp, logs_u):
     sp.save_csv(active_logs, "logs/logs_active.csv")
 
 
-def record_log(sp, logs, log_id, customer, action, status, po_number=None, files_save_path=None):
-    new_row = {"log_id": [log_id], "customer": [customer], "action": [action], "status": [status], "po": [po_number],
-               "files_save_path": [files_save_path]}
+def record_log(sp, logs, log_id, po_type, action, status, po_number=None, files_save_path=None):
+    new_row = {"log_id": [log_id], "po_type": [po_type], "action": [action], "status": [status], "po": [po_number],
+               "files_path": [files_save_path]}
     logs_u = pd.concat([logs, pd.DataFrame(new_row)], ignore_index=True)
     sp.save_csv(logs_u,"logs/logs.csv")
     if status == "success":
@@ -73,6 +74,7 @@ def update_inventory_in_memory(sp, updated_inv, inventory, log_id, config):
     # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
     #     updated_inv[col] = updated_inv[col].astype(int)
     sp.save_csv(updated_inv, 'INVENTARIO/INVENTARIO.csv')
+    sp.save_csv(updated_inv, 'INVENTARIO/SNAPSHOTS/INVENTARIO.csv')
     sp.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
     create_and_save_inventory_summary_table(sp, updated_inv, config)
 
@@ -196,4 +198,37 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
 
     return True
 
+def save_purchases_file_and_logs(sp, purchases: DataFrame, rd, log_id=None):
+    purchases[C.RECEIVED_DATE] = pd.to_datetime(purchases[C.RECEIVED_DATE]).dt.date
+    purchases[C.X_FTY] = pd.to_datetime(purchases[C.X_FTY]).dt.date
+    if log_id:
+        purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{rd}.csv")
+        purchases_logs = pd.concat([purchases_logs, purchases[purchases[C.LOG_ID] == log_id]], ignore_index=True)
+        sp.save_csv(purchases_logs, f"COMPRAS/LOGS/logs_{rd}.csv")
+    sp.save_excel(purchases, f"COMPRAS/{rd}.xlsx")
+    sp.save_csv(purchases, f"COMPRAS/LOGS/{rd}.csv")
 
+def read_or_create_file(sp, file_path):
+    """
+    Reads an existing file from SharePoint or creates a new empty DataFrame.
+
+    Parameters:
+    - sp: SharePointClient instance
+    - file_path: str, the SharePoint path to the file.
+
+    Returns:
+    - pd.DataFrame: existing file data or empty DataFrame
+    """
+    try:
+        # Try to read the existing master file from SharePoint
+        purchases = sp.read_csv(file_path)
+        convert_numeric_id_cols_to_text(purchases, [C.UPC, C.SKU, C.MOVEX_PO, C.WAREHOUSE_CODE])
+        return purchases
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            # File does not exist yet — create a new DataFrame
+            return pd.DataFrame()
+        else:
+            # Other HTTP error occurred — log and exit
+            print(f"Failed to read file: HTTP {e.response.status_code}")
+            return None

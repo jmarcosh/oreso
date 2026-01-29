@@ -5,7 +5,8 @@ import pandas as pd
 import streamlit as st
 
 from inventory.common_app import record_log, filter_active_logs, \
-    create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files
+    create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files, read_or_create_file, \
+    save_purchases_file_and_logs
 from inventory.varnames import ColNames as C
 from api_integrations.sharepoint_client import SharePointClient
 
@@ -55,7 +56,7 @@ def undo_inventory_update(recovery_id=None):
     undone_logs = active_logs.loc[active_logs['log_id'] >= recovery_id]
     undo_purchases_table(recovery_id, sp, undone_logs)
     record_log(sp, logs, log_id, 'undo', 'undo_inventory_update', "success", recovery_id)
-    for folder_path in undone_logs.loc[undone_logs['action'] == 'withdrawal','files_save_path']:
+    for folder_path in undone_logs.loc[undone_logs['action'] == 'withdrawal','files_path']:
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}"
             sp.rename_folder(folder_path, new_name)
@@ -64,14 +65,19 @@ def undo_inventory_update(recovery_id=None):
 
 def undo_purchases_table(recovery_id, sp: SharePointClient, undone_logs):
     undone_receipts = \
-    undone_logs.loc[undone_logs['action'] == 'receipt', 'files_save_path'].str.extract(r'/([^/]+)\.xlsx')[0]
+    undone_logs.loc[undone_logs['action'] == 'receipt', 'files_path'].str.extract(r'/([^/]+)\.xlsx')[0]
     for table in undone_receipts:
-        purchase = sp.read_excel(f"COMPRAS/{table}.xlsx")
-        purchase = purchase.loc[(purchase[C.LOG_ID] < recovery_id)]
-        purchase[C.RECEIVED_DATE] = pd.to_datetime(purchase[C.RECEIVED_DATE]).dt.date
-        purchase[C.X_FTY] = pd.to_datetime(purchase[C.X_FTY]).dt.date
-        sp.save_excel(purchase, f"COMPRAS/{table}.xlsx")
-        sp.save_csv(purchase, f"COMPRAS/BACKUPS/{table}.csv")
+        purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{table}.csv")
+        purchases_logs.set_index([C.MOVEX_PO, C.UPC], inplace=True)
+        purchases_last = purchases_logs[(~purchases_logs.index.duplicated(keep='last')) &
+                                        (purchases_logs[C.LOG_ID] < recovery_id)]
+        purchases = sp.read_csv(f"COMPRAS/LOGS/{table}.csv")
+        purchases_columns = purchases.columns
+        purchases.set_index([C.MOVEX_PO, C.UPC], inplace=True)
+        purchases_index = purchases.index.intersection(purchases_last.index)
+        purchases = purchases_last[purchases_index].reset_index()[purchases_columns]
+        save_purchases_file_and_logs(sp, purchases, table)
+
 
 
 if __name__ == '__main__':
