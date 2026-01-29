@@ -59,7 +59,7 @@ def create_and_save_inventory_summary_table(sp, updated_inv, config):
     # on_order = updated_inv[updated_inv[C.WAREHOUSE] == 'on_order']
     # on_order_pivot = on_order.pivot(index=inv_summ_indexes, columns=C.RECEIVED_DATE, values=C.RECEIVED).reset_index()
     # inv_summ = inv_summ.merge(on_order_pivot, on=inv_summ_indexes, how='left')
-    sp.save_excel(inv_pivot.reset_index(), 'INVENTARIO/SUMMARY.xlsx')
+    sp.save_excel(inv_pivot, 'INVENTARIO/SUMMARY.xlsx')
 
 def filter_active_logs(logs):
     active_logs = logs.loc[logs['status'] == 'success'].copy()
