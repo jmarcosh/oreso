@@ -113,7 +113,7 @@ def get_from_inactive_to_on_order_index(common_index: Index, purchases: DataFram
                                       (purchases[C.WAREHOUSE].isin(["techsmart"])))  # raise_error
     if inactive_on_order_to_warehouse.any():
         st.write("Update these items to on_order")
-        st.table(purchases.loc[inactive_on_order_to_warehouse])
+        st.dataframe(purchases.loc[inactive_on_order_to_warehouse])
         st.stop()
     inactive_on_order_to_on_order = ((~purchases.index.isin(common_index)) & (purchases[C.COST].isna()) &
                                      (purchases[C.WAREHOUSE] == 'on_order'))
