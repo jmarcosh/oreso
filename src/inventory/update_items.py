@@ -249,19 +249,19 @@ def find_common_rows_with_inventory(inventory: DataFrame, purchases: DataFrame) 
 
 def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) -> tuple[DataFrame, DataFrame, dict, str, str]:
     purchases = sp.read_excel(f'COMPRAS/{table}.xlsx')
-    config = sp.read_json("config/config.json")
-    validate_no_changes_in_id_cols(purchases, sp, table)
-    validate_unique_ids_and_status_in_updatable_table(purchases, config)
     inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
+    config = sp.read_json("config/config.json")
+    validate_no_changes_in_id_cols(purchases, sp, table)
+    validate_unique_ids_and_status_in_updatable_table(purchases, config)
     po_type = action = 'update'
     return purchases, inventory, config, po_type, action
 
 
 def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, table: str):
     hard_memory = sp.read_csv(f"COMPRAS/LOGS/{table}.csv")
-
+    convert_numeric_id_cols_to_text(hard_memory, [C.UPC, C.MOVEX_PO])
     # Validate that protected columns haven't been edited
     protected_cols = [C.MOVEX_PO, C.UPC]
 
@@ -285,7 +285,7 @@ def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, t
                 })
 
         st.error(
-            f"Protected columns ({', '.join(protected_cols)}) cannot be edited. Please revert the following changes:")
+            f"Protected columns {', '.join(protected_cols)} cannot be edited. Please revert the following changes:")
         st.dataframe(pd.DataFrame(differences), use_container_width=True, hide_index=True,
                      column_config={"Correct Value": st.column_config.NumberColumn(format="%.0f"),
                                     "Edited Value": st.column_config.NumberColumn(format="%.0f"),})

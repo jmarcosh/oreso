@@ -144,7 +144,9 @@ def validate_unique_ids_and_status_in_updatable_table(purchases: DataFrame, conf
         st.dataframe(
             purchases.loc[duplicated, [C.STYLE, C.MOVEX_PO, C.UPC]],
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            column_config={C.MOVEX_PO: st.column_config.NumberColumn(format="%.0f"),
+                           C.UPC: st.column_config.NumberColumn(format="%.0f"), }
         )
         st.stop()
     valid_status = set({item for lst in config.get("item_status").values() for item in lst})
