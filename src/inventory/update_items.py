@@ -266,7 +266,7 @@ def validate_no_changes_in_id_cols(purchases: DataFrame, sp: SharePointClient, t
     protected_cols = [C.MOVEX_PO, C.UPC]
 
     # Vectorized comparison to find differences
-    mask = (purchases[protected_cols] != hard_memory[protected_cols]).any(axis=1)
+    mask = (purchases[protected_cols].fillna('__NA__') != hard_memory[protected_cols].fillna('__NA__')).any(axis=1)
 
     if mask.any():
         diff_rows = purchases.index[mask]
@@ -355,4 +355,4 @@ def restore_inventory_row_and_columns_order(inventory: DataFrame, updated_inv: D
 if __name__ == '__main__':
     DELIVERY_DATE = "01/21/2026"
 
-    update_items_from_purchases_table('S26', DELIVERY_DATE)
+    update_items_from_purchases_table('B24', DELIVERY_DATE)
