@@ -223,7 +223,12 @@ def read_or_create_file(sp, file_path):
     """
     try:
         # Try to read the existing master file from SharePoint
-        purchases = sp.read_csv(file_path)
+        if file_path.endswith(".xlsx"):
+            purchases = sp.read_excel(file_path)
+        elif file_path.endswith(".csv"):
+            purchases = sp.read_csv(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {file_path}")
         convert_numeric_id_cols_to_text(purchases, [C.UPC, C.SKU, C.MOVEX_PO, C.WAREHOUSE_CODE])
         return purchases
     except requests.exceptions.HTTPError as e:
