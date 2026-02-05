@@ -28,7 +28,7 @@ def read_temp_files(temp_files):
         else:
             st.error(f"Unsupported file type: {filename}")
             st.stop()  # Stop the script immediately
-    po_df = pd.concat(po_dfs)
+    po_df = pd.concat(po_dfs, ignore_index=True)
     return po_df
 
 
