@@ -60,7 +60,7 @@ def undo_inventory_update(recovery_id=None):
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{recovery_id}"
             sp.rename_folder(folder_path, new_name)
-    return undone_logs[['log_id', 'customer', 'action', 'po']]
+    return undone_logs[['log_id', 'po_type', 'action', 'po']]
 
 
 def undo_purchases_table(recovery_id, sp: SharePointClient, undone_logs):
