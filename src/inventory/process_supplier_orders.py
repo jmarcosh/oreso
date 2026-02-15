@@ -1,7 +1,6 @@
 
 import pandas as pd
 import numpy as np
-import requests
 import streamlit as st
 
 from inventory.common_app import extract_size_from_style, convert_numeric_id_cols_to_text, \
@@ -34,6 +33,8 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
                             .str.replace(r"\D", "", regex=True)
                             .str.pad(6, side='right', fillchar='0').str[:6]
                             + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
+    if C.FOB in po.columns:
+        po['FOB+COMM'] = get_royalties_and_commissions_from_fob(config, po)
     po[C.COST] = np.nan # this column will be used when updating the receipt of the goods
     po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
     po[C.STYLE] = add_dash_before_size(po[C.STYLE], config)
@@ -44,6 +45,12 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po = add_inventory_cols(po, inventory)
     updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     return updated_inv, files_path
+
+
+def get_royalties_and_commissions_from_fob(config, po):
+    commissions_dict = config.get("brand_product_categories")
+    commissions = [commissions_dict[x + "_" + y] for x, y in zip(po[C.BRAND], po[C.PRODUCT])]
+    return [(1 + sum(sublist)) * fob for fob, sublist in zip(po[C.FOB], commissions)]
 
 
 def add_inventory_cols(po, inventory):
