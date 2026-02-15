@@ -36,7 +36,7 @@ retention_rate = 0.1015
 
 def style_to_style_number(x):
     x = x.split('-')[0]
-    d = re.sub(r'[^A-Za-z]', '', x)
+    d = re.sub(r'[^0-9]', '', x)
     if len(d) > 3:
         return str(d)
     return x
@@ -82,7 +82,7 @@ def _unify_similar_costs(lst):
     return pd.Series(result)
 
 
-sp = SharePointClient(site='servoreso', dry_run=True,  config_path="../config_files/secrets.toml")
+sp = SharePointClient(site='servoreso', dry_run=False,  config_path="../config_files/secrets.toml")
 customs_data = sp.read_excel("Imports/Templates/customs.xlsx")
 customs_data['STYLE'] = customs_data['STYLE'].astype(str)
 pars = sp.read_excel("Imports/Templates/parameters.xlsx").set_index('input')
@@ -91,7 +91,7 @@ RD = pars.loc['rd', 'value']
 SHIPMENT_ID = pars.loc['shipment_id', 'value']
 CUSTOMS_ID = pars.loc['customs_id', 'value']
 
-invoc = SharePointClient(site='invoc', dry_run=True,  config_path="../config_files/secrets.toml")
+invoc = SharePointClient(site='invoc', dry_run=False,  config_path="../config_files/secrets.toml")
 product_data = invoc.read_excel(f"COMPRAS/{RD[:3]}.xlsx")
 product_data = product_data[product_data["RD"] == RD].reset_index(drop=True)
 
@@ -130,7 +130,7 @@ customs_table = product_data.merge(customs_data.rename({'FOB': 'FOB_CUSTOMS', 'S
                                                        axis=1), on='STYLE_NUMBER', how='left')
 customs_table_nans = customs_table.loc[customs_table['PCS'].isna(), 'STYLE_NUMBER']
 if len(customs_table_nans) > 0:
-    print(f"The following styles have no PCS: {customs_table_nans}")
+    print(f"The following styles have no PCS: {set(customs_table_nans)}")
     sys.exit()
 estimated_taxes_mx = ((customs_data['PCS'] * customs_data['FOB']) @ customs_data['TOTAL_TAX_RATE']) * BROKER_XE
 tax_correction_factor = TAXES_MX / estimated_taxes_mx
