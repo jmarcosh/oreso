@@ -57,7 +57,15 @@ def assign_box_number(sp, po, customer, config, log_id):
         if store_s != store_prev:
             c = 0
             store_prev = store_s
-        box_assignment.append(rfid_series[box]) if (len(combo_s) > 0) else box_assignment.append(None)
+        # Assigns RFID label or None based on combo availability; stops on shortage
+        if len(combo_s) > 0:
+            if box < len(rfid_series):
+                box_assignment.append(rfid_series[box])
+            else:
+                st.error("Not enough RFID labels available. Please add more RFID labels.")
+                st.stop()
+        else:
+            box_assignment.append(None)
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
     sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
