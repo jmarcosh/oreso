@@ -217,9 +217,10 @@ data = {
         ('moncaramel', 'thermal'): [0.15, 0.0],
         ('liverpool', 'price_tag'): [0, 0],
         ('suburbia', 'price_tag'): [0, 0],
+        ('splendid', 'cami'): [0.15, 0.08],
     },
 
-    "factories": ["skypai", "apex", "clifton", "unitex", "glorymaster", "zhejiang", "xiamen", "etiflex"],
+    "factories": ["skypai", "apex", "clifton", "unitex", "glorymaster", "zhejiang", "xiamen", "etiflex", "everfashion"],
 
     "business_keys": ["basics", "fashion"],
     
