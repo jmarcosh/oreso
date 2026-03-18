@@ -163,7 +163,9 @@ def create_and_save_asn_file(sp, po, config, po_nums, files_save_path):
     asn[C.CUSTOMER_UPC] = np.nan
     asn[C.SKU] = asn[C.SKU].astype(int)
     add_nan_cols(asn, asn_columns)
-    sp.save_excel(asn[asn_columns], f"{files_save_path}/asn_{po_nums}.xlsx")
+    group_cols = [col for col in asn_columns if col != 'PIEZAS CITADAS POR HU']
+    asn = asn.groupby(group_cols, as_index=False, dropna=False)['PIEZAS CITADAS POR HU'].sum()[asn_columns]
+    sp.save_excel(asn, f"{files_save_path}/asn_{po_nums}.xlsx")
 
 def sort_rd(rd):
     match = re.match(r'([a-zA-Z])(\d+)([a-zA-Z]?)', rd)
@@ -189,9 +191,6 @@ def assign_store_name(sp, po_df, customer):
     return np.zeros(len(po_df))
 
 def run_process_customer_orders(sp, po, config, customer, delivery_date, files_save_path, log_id):
-
-
-
     po = po[(~po[C.STYLE].isna())].reset_index(drop=True)
     conflicts = po.loc[(po[C.CUSTOMER_COST] != po[C.WHOLESALE_PRICE]),
         [C.STYLE, C.WHOLESALE_PRICE, C.CUSTOMER_COST]].drop_duplicates() #pc = price_conflict
