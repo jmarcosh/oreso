@@ -6,28 +6,12 @@ import re
 
 from sharepoint_api.sharepoint_client import SharePointClient
 
-from inventory.process_orders_utils import add_dash_before_size
 from inventory.varnames import ColNames as C
 
 # INPUTS
 
 np.random.seed(42)
 
-costing_structure = {
-    'splendid_top': 1.23,
-    'splendid_panty': 1.19,
-    'thatsit_top': 1.15,
-    'thatsit_panty': 1.15,
-    'thatsit_boxer': 1.15,
-    'thatsit_thermal': 1.15,
-    'piquenique_panty': 1.15,
-    'piquenique_boxer': 1.15,
-    'tahari_top': 1.22,
-    'tahari_underwire': 1.22,
-    'tahari_wireless': 1.22,
-    'tahari_panty': 1.22,
-    'moncaramel_thermal': 1.15,
-}
 
 customer_net_payments = dict(splendid=0.88, thatsit=0.88, piquenique=0.88, tahari=0.79, moncaramel=0.88)
 
@@ -94,7 +78,8 @@ CUSTOMS_ID = pars.loc['customs_id', 'value']
 invoc = SharePointClient(site='invoc', dry_run=False,  config_path="../config_files/secrets.toml")
 product_data = invoc.read_excel(f"COMPRAS/{RD[:3]}.xlsx")
 product_data = product_data[product_data["RD"] == RD].reset_index(drop=True)
-
+config = invoc.read_json("config/config.json")
+costing_structure = config["brand_product_categories"]
 
 output_folder = f'/Imports/Files/{RD[:-1]}/{RD}'
 sp.create_folder_path(output_folder)
@@ -112,7 +97,7 @@ OTHER_CHARGES_MX = _parse_charges_and_movex_po_num_from_other_charges(pars.loc['
 other_charges_mx_sum = sum([float(x[1]) for x in OTHER_CHARGES_MX])
 TOTAL_PAYMENTS_MX = GOODS_TOTAL_COST_MX + TAXES_MX + SEA_FREIGHT_MX + LAND_FREIGHT_MX + BROKER_FEE_MX + other_charges_mx_sum
 
-delta_factor = [costing_structure[x + "_" + y] for x, y in zip(product_data[C.BRAND], product_data[C.PRODUCT])]
+delta_factor = [1 + sum(costing_structure[x + "_" + y]) for x, y in zip(product_data[C.BRAND], product_data[C.PRODUCT])]
 unit_origin_cost_us = product_data[C.FOB] * delta_factor
 total_origin_invoice_us = product_data[C.RECEIVED] @ unit_origin_cost_us
 total_quantity = product_data[C.RECEIVED].sum()
@@ -130,7 +115,7 @@ customs_table = product_data.merge(customs_data.rename({'FOB': 'FOB_CUSTOMS', 'S
                                                        axis=1), on='STYLE_NUMBER', how='left')
 customs_table_nans = customs_table.loc[customs_table['PCS'].isna(), 'STYLE_NUMBER']
 if len(customs_table_nans) > 0:
-    print(f"The following styles have no PCS: {set(customs_table_nans)}")
+    print(f"The following styles in customs table were not matched: {set(customs_table_nans)}")
     sys.exit()
 estimated_taxes_mx = ((customs_data['PCS'] * customs_data['FOB']) @ customs_data['TOTAL_TAX_RATE']) * BROKER_XE
 tax_correction_factor = TAXES_MX / estimated_taxes_mx
