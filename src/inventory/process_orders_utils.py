@@ -161,8 +161,8 @@ def save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, 
             sp.save_csv(po[po[C.PO_NUM].astype(str) == po_num], f"{po_save_path}/{po_num}.csv")
     po_num = "_".join(po_nums)
     files_save_path = f"OC/{customer.title()}/{delivery_date.split('/')[2]}/{delivery_date.split('/')[0]}/{log_id}_{str(po_num)}"
-    if len(files_save_path) > 200:
-        files_save_path = files_save_path[:200].rsplit("_", 1)[0] + "_and_more"
+    if len(files_save_path) > 75:
+        files_save_path = files_save_path[:75].rsplit("_", 1)[0] + "_and_more"
     sp.create_folder_path(files_save_path)
     return files_save_path
 
