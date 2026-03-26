@@ -182,8 +182,8 @@ def save_goods_receipt_and_techsmart_files(config: dict, delivery_date: str, log
 
 
 def calculate_costs_and_create_proforma(config: dict, delivery_date: str, receipt: DataFrame) -> tuple[DataFrame, DataFrame]:
-    unit_cost = compute_unit_costs(config, receipt)
-    receipt[C.COST] = unit_cost
+    if receipt[C.COST].isna().all():
+        receipt[C.COST] = compute_unit_costs(config, receipt)
     receipt[C.RECEIVED_DATE] = delivery_date
     proforma = create_proforma_table(config, receipt)
     return receipt, proforma
@@ -199,11 +199,13 @@ def create_proforma_table(config: dict, receipt: DataFrame) -> DataFrame:
 
 def compute_unit_costs(config: dict, receipt: DataFrame) -> Series:
     brand_net_payments, cost_factor = get_costing_parameters(config)
-    margin_from_wholesale_price = receipt[C.BRAND].map(lambda x: brand_net_payments[x] - 1 + cost_factor)
-    unit_cost_mx_raw = (receipt[C.WHOLESALE_PRICE] * margin_from_wholesale_price).round(2)
+    margin_from_wholesale_price = receipt[C.BRAND].map(lambda x: brand_net_payments.get(x, 0))
+    unit_cost_mx_raw = (receipt[C.WHOLESALE_PRICE].fillna(0) * (margin_from_wholesale_price - 1 + cost_factor)).round(2)
     unit_cost_mx_unif = _unify_similar_costs(unit_cost_mx_raw.tolist())
     random_cost_dct = create_random_shocks_dict(unit_cost_mx_unif)
-    unit_cost = (unit_cost_mx_unif * unit_cost_mx_unif.map(random_cost_dct)).round(2)
+    unit_cost = receipt[C.COST].copy()
+    mask = margin_from_wholesale_price != 0
+    unit_cost[mask] = (unit_cost_mx_unif[mask] * unit_cost_mx_unif[mask].map(random_cost_dct)).round(2)
     return unit_cost
 
 

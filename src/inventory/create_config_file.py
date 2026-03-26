@@ -46,6 +46,28 @@ data = {
         C.RD: C.RD,
     },
 
+    "supplier_rename": {
+        "SEASON": C.RD,
+        C.RD: C.RD,
+        "FACTORY": C.FACTORY,
+        "BRAND": C.BRAND,
+        "BUS_KEY": C.BUS_KEY,
+        C.MOVEX_PO: C.MOVEX_PO,  # No clear match
+        "STYLE": C.STYLE,
+        "DESCRIPTION": C.DESCRIPTION,
+        C.UPC: C.UPC,  # Same
+        C.SKU: C.SKU,
+        C.FOB: C.FOB,
+        "QUANTITY": C.RECEIVED,
+        "PRODUCT": C.PRODUCT,
+        "PCS_PER_PACK": C.PCS_PACK,
+        "PCS_BOX": C.PCS_BOX,
+        "WHOLESALE_PRICE": C.WHOLESALE_PRICE,
+        "RETAIL_PRICE": C.RETAIL_PRICE,
+        "X_FTY": C.X_FTY,
+        "COST": C.COST,
+    },
+
 
     "ts_rename": {
         C.PO_NUM: '# OC',
@@ -60,6 +82,7 @@ data = {
         C.BOX_ID: 'Contenedor',
         C.BOX_TYPE: 'Tipo Caja',
     },
+
 
     "ts_columns_csv": [
         'Código Tecs', 'Grupo', 'Descripción', 'Sku',
@@ -172,25 +195,6 @@ data = {
         C.DELIVERED, C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.CUSTOMER_COST
     ],
 
-    "supplier_rename": {
-        "SEASON": C.RD,
-        "FACTORY": C.FACTORY,
-        "BRAND": C.BRAND,
-        "BUS_KEY": C.BUS_KEY,
-        C.MOVEX_PO: C.MOVEX_PO,  # No clear match
-        "STYLE": C.STYLE,
-        "DESCRIPTION": C.DESCRIPTION,
-        C.UPC: C.UPC,  # Same
-        C.SKU: C.SKU,
-        C.FOB: C.FOB,
-        "QUANTITY": C.RECEIVED,
-        "PRODUCT": C.PRODUCT,
-        "PCS_PER_PACK": C.PCS_PACK,
-        "PCS_BOX": C.PCS_BOX,
-        "WHOLESALE_PRICE": C.WHOLESALE_PRICE,
-        "RETAIL_PRICE": C.RETAIL_PRICE,
-        "X_FTY": C.X_FTY,
-    },
 
     "labels_rename": {C.RD: C.RD,
                       "FACTORY": C.FACTORY,

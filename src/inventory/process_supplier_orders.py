@@ -16,7 +16,7 @@ def validate_file(df, po_type, config):
     valid_factories = set(df[C.FACTORY]) <= set(config['factories'])
     if not valid_factories:
         st.write(f"Enable the missing factories: {set(df[C.FACTORY]) - set(config['factories'])}")
-    valid_business_keys = set(df[C.BUS_KEY]).issubset(set(config['business_keys'])) if po_type == "supplier" else True
+    valid_business_keys = set(df[C.BUS_KEY]).issubset(set(config['business_keys'])) if C.BUS_KEY in df.columns else True
     if not valid_business_keys:
         st.write(f"Enable the missing business keys: {set(df[C.BUS_KEY]) - set(config['business_keys'])}")
     if not valid_brand_product * valid_factories * valid_business_keys:
@@ -35,7 +35,8 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
                             + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
     if C.FOB in po.columns:
         po['FOB+COMM'] = get_royalties_and_commissions_from_fob(config, po)
-    po[C.COST] = np.nan # this column will be used when updating the receipt of the goods
+    if C.COST not in po.columns:
+        po[C.COST] = np.nan # this column will be used when updating the receipt of the goods
     po[C.RECEIVED_DATE] = pd.to_datetime(delivery_date)
     po[C.STYLE] = add_dash_before_size(po[C.STYLE], config)
     po[C.WAREHOUSE] = "on_order"

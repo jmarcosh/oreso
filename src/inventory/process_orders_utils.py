@@ -65,11 +65,13 @@ def auto_assign_po_type(df):
         return 'liverpool'
     elif 'Num. Prov' in df.columns:
         return 'suburbia'
-    elif 'SEASON' in df.columns:
-        return 'supplier'
     elif 'FACTORY' in df.columns:
-        return 'price_tag'
-    return 'interno'
+        return 'supplier'
+    elif 'OC_NUM' in df.columns:
+        return 'interno'
+    else:
+        st.error("Error: File must contain at least one of the following columns: # Prov, Num. Prov, FACTORY, or OC_NUM.")
+        st.stop("Error: File must contain a matching column.")
 
 def auto_assign_matching_columns(df, lst):
     stop_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]

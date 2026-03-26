@@ -52,7 +52,7 @@ def run_process_orders(delivery_date:str, temp_paths:list =[]):
                 st.write("Internal orders should end with _KEY")
                 st.stop()
         update_billing_record(sp, po, po_type, delivery_date, config, txn_key, log_id)
-    else: # po_type == receipt
+    else: # po_type == supplier
         updated_inv, files_save_path = process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, log_id)
     update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
     po_nums_str = "_".join(po_nums)
