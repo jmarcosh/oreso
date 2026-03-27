@@ -54,7 +54,7 @@ def insert_active_rows(inactive_to_on_order: Series,
 
     purchases_on_order = filter_rows_on_order(inactive_to_on_order, log_id, purchases)
     updated_inv_cols = updated_inv.columns
-    updated_inv = pd.concat([updated_inv, purchases_warehouse[updated_inv_cols], purchases_on_order[updated_inv_cols]])
+    updated_inv = pd.concat([updated_inv, purchases_warehouse, purchases_on_order])[updated_inv_cols]
     return updated_inv
 
 
