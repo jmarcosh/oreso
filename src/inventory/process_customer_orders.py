@@ -40,7 +40,7 @@ def assign_box_number(sp, po, customer, config, log_id):
     box_assignment = []
     cum_space = []
     store_prev = stores[0]
-    c = 0
+    carton_index_in_store = 0
     # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
     rfid_series_df = sp.read_excel(f"config/rfid_{customer.lower()}.xlsx")
     first_col = rfid_series_df.columns[0]
@@ -49,13 +49,13 @@ def assign_box_number(sp, po, customer, config, log_id):
     box = start_box
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
-        max_vol = combo_s[c] if c < (len(combo_s) - 1) else capacities[0]
-        if (sum(cum_space) > max_vol) | ((store_s != store_prev) & (len(combo_s) > 0)):
+        max_vol = combo_s[carton_index_in_store] if carton_index_in_store < (len(combo_s) - 1) else capacities[0]
+        if (sum(cum_space) > max_vol) | (store_s != store_prev):
             box += 1
-            c += 1
+            carton_index_in_store += 1
             cum_space = [space_s]
         if store_s != store_prev:
-            c = 0
+            carton_index_in_store = 0
             store_prev = store_s
         # Assigns RFID label or None based on combo availability; stops on shortage
         if len(combo_s) > 0:
@@ -66,6 +66,7 @@ def assign_box_number(sp, po, customer, config, log_id):
                 st.stop()
         else:
             box_assignment.append(None)
+            box -= 1
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
     sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
@@ -86,7 +87,7 @@ def add_box_related_columns(po, box_assignment, names, capacities, dimensions):
     po['BOX_STORE_NUM'] = po.groupby([C.STORE_ID])['BOX_CHANGE'].cumsum()
     po['BOX_VOLUME'] = po.groupby(C.BOX_ID)['ROW_VOLUME'].transform('sum')
     bins = [x * 1.04 for x in [0] + capacities[::-1]] # account that there's more space in boxes than reported
-    bins[-1] *= 2 # avoid errors because last box is too loaded doue to split
+    bins[-1] *= 2 # avoid errors and fit everything in the last box
     po[C.BOX_TYPE] = pd.cut(po['BOX_VOLUME'], bins=bins, labels=names[::-1], right=True).astype(str)
     name_to_dimensions = {n: d for n, d in zip(names, dimensions)}
     po['BOX_DIMENSION'] = [name_to_dimensions.get(x, (0, 0, 0)) for x in po[C.BOX_TYPE]]
@@ -99,7 +100,7 @@ def assign_box_combos_per_store(po, capacities, costs):
     store_volumes = po.groupby([C.STORE_ID])['ROW_VOLUME'].sum().reset_index(name='STORE_VOLUME')
     store_volumes['STORE_VOLUME'] = store_volumes[
                                         "STORE_VOLUME"] * 1.04  # to account that a greedy assignment by row leaves empty space
-    store_volumes['MAX_CARTON'] = np.ceil(store_volumes['STORE_VOLUME'] / capacities[2]).astype(int)
+    store_volumes['MAX_CARTON'] = np.ceil(store_volumes['STORE_VOLUME'] / capacities[-1]).astype(int)
     store_volumes['COMBO'] = [find_best_carton_combo(vol, max_crtn, capacities, costs) for
                               vol, max_crtn in zip(store_volumes['STORE_VOLUME'], store_volumes['MAX_CARTON'])]
     po = po.merge(store_volumes[[C.STORE_ID, 'COMBO']], on=[C.STORE_ID], how='left')
