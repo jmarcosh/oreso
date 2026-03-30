@@ -202,7 +202,8 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
 
 def save_purchases_file_and_logs(sp, purchases: DataFrame, rd, log_id=None):
     purchases[C.RECEIVED_DATE] = pd.to_datetime(purchases[C.RECEIVED_DATE]).dt.date
-    purchases[C.X_FTY] = pd.to_datetime(purchases[C.X_FTY]).dt.date
+    if C.X_FTY in purchases.columns:
+        purchases[C.X_FTY] = pd.to_datetime(purchases[C.X_FTY]).dt.date
     if log_id:
         purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{rd}.csv")
         purchases_logs = pd.concat([purchases_logs, purchases[purchases[C.LOG_ID] == log_id]], ignore_index=True)
