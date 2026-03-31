@@ -46,7 +46,7 @@ def assign_box_number(sp, po, customer, config, log_id):
     first_col = rfid_series_df.columns[0]
     rfid_series = rfid_series_df[first_col].tolist()
     start_box = rfid_series_df[rfid_series_df[C.LOG_ID].isna()].index[0]
-    box = start_box
+    box = start_box - 1
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
         max_vol = combo_s[carton_index_in_store] if carton_index_in_store < (len(combo_s) - 1) else capacities[0]
