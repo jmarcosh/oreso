@@ -39,7 +39,7 @@ def assign_box_number(sp, po, customer, config, log_id):
     combo = po['COMBO'].values
     box_assignment = []
     cum_space = []
-    store_prev = stores[0]
+    store_prev = -1
     carton_index_in_store = 0
     # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
     rfid_series_df = sp.read_excel(f"config/rfid_{customer.lower()}.xlsx")
@@ -50,7 +50,7 @@ def assign_box_number(sp, po, customer, config, log_id):
     for store_s, space_s, combo_s in zip(stores, row_volume, combo):
         cum_space.append(space_s)
         max_vol = combo_s[carton_index_in_store] if carton_index_in_store < (len(combo_s) - 1) else capacities[0]
-        if (sum(cum_space) > max_vol) | (store_s != store_prev):
+        if (sum(cum_space) > max_vol) | ((store_s != store_prev) & (len(combo_s) > 0)):
             box += 1
             carton_index_in_store += 1
             cum_space = [space_s]
@@ -66,7 +66,6 @@ def assign_box_number(sp, po, customer, config, log_id):
                 st.stop()
         else:
             box_assignment.append(None)
-            box -= 1
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
     sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
