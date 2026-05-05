@@ -113,8 +113,6 @@ data = {
 
     "customers": ["liverpool", "suburbia", "interno"],
     "customers_rfid": ["liverpool", "suburbia"],
-    "bus_key_to_customer": {"lvp": "Liverpool",
-                            "sub": "Suburbia"},
 
 
     "cartons": [
