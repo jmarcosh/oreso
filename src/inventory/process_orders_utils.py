@@ -87,13 +87,15 @@ def auto_assign_matching_columns(df, lst):
 
 
 def allocate_stock(po, inventory, cols):
+    mask = inventory[C.WAREHOUSE].isin(['on_order', 'inactive'])
+    inventory_active = inventory[~mask].copy()
     code_combinations = po[cols].drop_duplicates().itertuples(index=False, name=None)
     delivered = []
     for values in code_combinations:
         po_mask = np.logical_and.reduce([(po[c] == v) for c, v in zip(cols, values)])
-        inv_mask = np.logical_and.reduce([(inventory[c] == v) for c, v in zip(cols, values)])
+        inv_mask = np.logical_and.reduce([(inventory_active[c] == v) for c, v in zip(cols, values)])
         po_sku = po[po_mask]
-        inventory_sku = inventory[inv_mask]
+        inventory_sku = inventory_active[inv_mask]
         demand = po_sku[C.ORDERED].sum()
         stock = inventory_sku[C.INVENTORY].sum()
         if stock >= demand:
