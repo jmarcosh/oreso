@@ -67,9 +67,8 @@ def assign_box_number(sp, po, customer, config, log_id):
         else:
             box_assignment.append(None)
     rfid_series_df.loc[start_box: box, C.LOG_ID] = log_id
-    sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     po = add_box_related_columns(po, box_assignment, names, capacities, dimensions)
-    return po
+    return po, rfid_series_df
 
 
 def get_cartons_info(cartons):
@@ -110,24 +109,24 @@ def create_po_summary_by_store(po, config):
     return po_gb
 
 def upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files_save_path):
-    po_nums = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
+    po_nums_abbrev = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
-    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_save_path)
-    save_checklist(sp, po_style, po_store, techsmart, config, po_nums, files_save_path)
-    create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, po_nums, section, files_save_path)
-    create_and_save_asn_file(sp, po, config, po_nums, files_save_path)
+    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums_abbrev, files_save_path)
+    save_checklist(sp, po_style, po_store, techsmart, config, po_nums_abbrev, files_save_path)
+    create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, section, files_save_path)
+    create_and_save_asn_file(sp, po, config, po_nums_abbrev, files_save_path)
     return po_style
 
 
 
-def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, po_nums, section, files_save_path):
-    po_nums_lst = po_nums.rsplit('_')
+def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, section, files_save_path):
     dn_structure = config["dn_structure"]
     customer_map = config["dn_customers"].get(customer, {})
     dn_discounts =config["dn_discounts"].get(customer, {})
     dn_structure.update(customer_map)
+    po_nums_lst = po_style[C.PO_NUM].unique().tolist()
     for po_num in po_nums_lst:
         delivery_num = int(dn_structure["NOTA DE REMISION"]) + 1
         for key, value in zip(["NOTA DE REMISION", "Orden de compra:", "Departamento", "Fecha orden de compra:"],
@@ -136,7 +135,7 @@ def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config,
         dn_structure_df = [[k, v] for k, v in dn_structure.items()]
         blank_row = pd.DataFrame([[]])
         dn_columns = config["dn_columns"]
-        dn = po_style.loc[(po_style[C.PO_NUM] == int(po_num))].groupby(dn_columns[1:5]).agg({
+        dn = po_style.loc[(po_style[C.PO_NUM] == po_num)].groupby(dn_columns[1:5]).agg({
             C.DELIVERED: 'sum', C.CUSTOMER_COST: 'mean'
         }).reset_index()[dn_columns]
         dn['SUBTOTAL'] = dn[C.DELIVERED] * dn[C.CUSTOMER_COST]
@@ -152,7 +151,7 @@ def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config,
         dn_file_path = f"{files_save_path}/Nota_Remision_{po_num}_{delivery_num}.xlsx"
         sp.save_delivery_note_excel(delivery_note, dn_file_path)
 
-def create_and_save_asn_file(sp, po, config, po_nums, files_save_path):
+def create_and_save_asn_file(sp, po, config, po_nums_abbrev, files_save_path):
     asn_rename = config["asn_rename"]
     asn_columns = config["asn_columns"]
     asn = po.copy()
@@ -165,7 +164,7 @@ def create_and_save_asn_file(sp, po, config, po_nums, files_save_path):
     add_nan_cols(asn, asn_columns)
     group_cols = [col for col in asn_columns if col != 'PIEZAS CITADAS POR HU']
     asn = asn.groupby(group_cols, as_index=False, dropna=False)['PIEZAS CITADAS POR HU'].sum()[asn_columns]
-    sp.save_excel(asn, f"{files_save_path}/asn_{po_nums}.xlsx")
+    sp.save_excel(asn, f"{files_save_path}/asn_{po_nums_abbrev}.xlsx")
 
 def sort_rd(rd):
     match = re.match(r'([a-zA-Z])(\d+)([a-zA-Z]?)', rd)
@@ -198,10 +197,11 @@ def run_process_customer_orders(sp, po, config, customer, delivery_date, files_s
         st.write(f"""The following styles have price conflicts:""")
         st.table(conflicts)
         st.stop()
-    po = assign_box_number(sp, po, customer, config, log_id)
+    po, rfid_series_df = assign_box_number(sp, po, customer, config, log_id)
     po[C.STORE_NAME] = assign_store_name(sp, po, customer)
     po_style = upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files_save_path)
     sp.save_json(config, "config/config.json")
+    sp.save_excel(rfid_series_df, f"config/rfid_{customer.lower()}.xlsx")
     return po_style
 
 

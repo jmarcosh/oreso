@@ -117,12 +117,12 @@ def allocate_stock(po, inventory, cols):
     return np.concatenate(delivered)
 
 
-def save_checklist(sp, po_style, po_store, techsmart, config, po_nums, files_save_path):
+def save_checklist(sp, po_style, po_store, techsmart, config, po_nums_abbrev, files_save_path):
     cols = config['checklist_columns']
     checklist = po_style[cols]
     dfs = [checklist, po_store, techsmart]
     sheet_names = ["CHECKLIST", "TIENDA", "TECHSMART"]
-    checklist_path = f"{files_save_path}/Checklist_{po_nums}.xlsx"
+    checklist_path = f"{files_save_path}/Checklist_{po_nums_abbrev}.xlsx"
     sp.save_multiple_dfs_to_excel(dfs, sheet_names, checklist_path, auto_adjust_columns=True)
 
 

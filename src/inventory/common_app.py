@@ -113,7 +113,7 @@ def convert_numeric_id_cols_to_text(df, cols):
             df[col] = (pd.to_numeric(df[col], errors='coerce').fillna(df[col].fillna(0))
                        .astype(str).replace(r'\..*$', '', regex=True))
 
-def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_save_path):
+def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums_abbrev, files_save_path):
     ts_rename = config["ts_rename"]
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
@@ -127,8 +127,8 @@ def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums, files_
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
-    # sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.txt", sep='\t')
-    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums)}.csv")
+    # sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums_abbrev)}.txt", sep='\t')
+    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums_abbrev)}.csv")
     return ts[ts_columns_csv]
 
 def add_nan_cols(df, cols):
