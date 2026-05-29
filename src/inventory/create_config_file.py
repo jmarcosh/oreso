@@ -229,7 +229,8 @@ data = {
 
     "business_keys": ["basics", "fashion"],
     
-    "sizes": ['24MO', '18MO', '12MO', '6MO', '3MO', '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
+    "sizes": ['3T', '2T', '24MO', '18MO', '12MO', '6MO', '3MO', '24M', '18M', '12M', '6M', '3M',
+              '38A', '36A', '34A', '32A', '30A', 'XXL', '2XL', 'XL', 'XS', 'M', 'L', 'S',
              '16', '14', '12', '10', '08', '06', '04', '8', '6', '4'],
 
     "brand_net_payments": {"splendid": 0.88, "thatsit": 0.88, "piquenique": 0.88, "tahari": 0.79, "moncaramel": 0.88},

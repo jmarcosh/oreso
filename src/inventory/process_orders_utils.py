@@ -176,17 +176,17 @@ def add_dash_before_size(style_col, config):
     sizes = sorted(sizes, key=len, reverse=True)
 
     def transform(s):
-        # Already has a dash before last token → leave unchanged
-        if '-' in s:
-            base, last = s.rsplit('-', 1)
-            if last in sizes:
-                return s
-
-        # No dash → check suffix
+        base, last = s.rsplit('-', 1) if '-' in s else ('', s)
+        if len(last) == 1 and last.isnumeric():
+            last = last.zfill(2)
+        elif len(last) == 4 and last[-1].isnumeric():
+            last = last[:-1] + last[-1].zfill(2)
+        if last in sizes:
+            return s
         for size in sizes:
-            if s.endswith(size):
-                return s[:-len(size)] + '-' + size
-
+            if last.endswith(size):
+                prefix = base + '-' if base else ''
+                return prefix + last[:-len(size)] + '-' + size
         return s
     return [transform(style) for style in style_col]
 
