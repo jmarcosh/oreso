@@ -182,10 +182,12 @@ def add_dash_before_size(style_col, config):
         elif len(last) == 4 and last[-1].isnumeric():
             last = last[:-1] + last[-1].zfill(2)
         if last in sizes:
-            return s
+            return base + '-' + last
         for size in sizes:
             if last.endswith(size):
                 prefix = base + '-' if base else ''
+                if len(last) == 5:
+                    return prefix + last[:3] + '-' + last[3:]
                 return prefix + last[:-len(size)] + '-' + size
         return s
     return [transform(style) for style in style_col]
