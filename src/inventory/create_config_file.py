@@ -234,7 +234,7 @@ data = {
              '16', '14', '12', '10', '08', '06', '04', '8', '6', '4'],
 
     "brand_net_payments": {"splendid": 0.88, "thatsit": 0.88, "piquenique": 0.88, "tahari": 0.79, "moncaramel": 0.88},
-    "cost_factor": 0.9,
+    "cost_factor": 0.85,
     "proforma_rename": {C.INVOICE_NUM: C.INVOICE_NUM,
                         C.RD: C.RD,
                         C.MOVEX_PO: C.MOVEX_PO,
