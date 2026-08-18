@@ -20,7 +20,9 @@ def undo_rfid(sp, recovery_id, config):
     customers = config.get("customers_rfid")
     for customer in customers:
         rfid_df = sp.read_excel(f"config/rfid_{customer}.xlsx")
-        rfid_df[C.LOG_ID] = rfid_df[C.LOG_ID].where(rfid_df[C.LOG_ID] < recovery_id, np.nan)
+        log_id_num = pd.to_numeric(rfid_df[C.LOG_ID], errors='coerce')
+        keep = log_id_num.isna() | (log_id_num < float(recovery_id))
+        rfid_df[C.LOG_ID] = rfid_df[C.LOG_ID].where(keep, np.nan)
         sp.save_excel(rfid_df, f"config/rfid_{customer}.xlsx")
 
 
