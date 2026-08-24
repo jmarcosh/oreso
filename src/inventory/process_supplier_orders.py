@@ -27,12 +27,13 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po = po.loc[~po[C.RD].isna()].reset_index(drop=True)
     validate_file(po, po_type, config)
     po[C.LOG_ID] = log_id
-    po[C.WAREHOUSE_CODE] = (po[C.MOVEX_PO]
-                            .fillna(0)
-                            .astype(str)
-                            .str.replace(r"\D", "", regex=True)
-                            .str.pad(6, side='right', fillchar='0').str[:6]
-                            + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
+    po[C.WAREHOUSE_CODE] = po[C.UPC].astype(int)
+    # po[C.WAREHOUSE_CODE] = (po[C.MOVEX_PO]
+    #                         .fillna(0)
+    #                         .astype(str)
+    #                         .str.replace(r"\D", "", regex=True)
+    #                         .str.pad(6, side='right', fillchar='0').str[:6]
+    #                         + po[C.UPC].str.zfill(6).str[-6:]).astype(int)
     if C.FOB in po.columns:
         po['FOB+COMM'] = get_royalties_and_commissions_from_fob(config, po)
     if C.COST not in po.columns:
