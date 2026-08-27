@@ -111,6 +111,13 @@ data = {
         "SELLO 1 DEL HU", "SELLO 2 DEL HU", "TRANSPORTE"
     ],
 
+    "purchases_columns": [
+        C.RD, C.FACTORY, C.BRAND, C.BUS_KEY, C.MOVEX_PO, C.STYLE, C.DESCRIPTION,
+        C.UPC, C.SKU, C.FOB, C.RECEIVED, C.PRODUCT, C.PCS_PACK, C.PCS_BOX,
+        C.WHOLESALE_PRICE, C.RETAIL_PRICE, C.X_FTY, C.LOG_ID, C.WAREHOUSE_CODE,
+        "FOB+COMM", C.COST, C.RECEIVED_DATE, C.WAREHOUSE, C.INVOICE_NUM
+    ],
+
     "customers": ["liverpool", "suburbia", "interno"],
     "customers_rfid": ["liverpool", "suburbia"],
 
@@ -187,7 +194,8 @@ data = {
     },
 
     "dn_discounts": {"liverpool": 0.045,
-                     "suburbia": 0},
+                     "suburbia": 0,
+                     "interno" : 0},
 
     "dn_columns": [
         C.DELIVERED, C.STYLE, C.DESCRIPTION, C.UPC, C.SKU, C.CUSTOMER_COST
