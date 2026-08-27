@@ -128,14 +128,13 @@ def save_checklist(sp, po_style, po_store, techsmart, config, po_nums_abbrev, fi
 
 def update_billing_record(sp, po_style, customer, delivery_date, config, txn_key, log_id):
     br_columns = config["br_columns"]
-    dn_discounts = config["dn_discounts"].get(customer, {})
+    dn_discounts = config["dn_discounts"].get(customer, 0)
     br = sp.read_csv('FACTURACION/FACTURACION.csv')
     po_br = po_style.copy()
     po_br[C.DELIVERY_DATE] = datetime.strptime(delivery_date, "%m/%d/%Y")
     po_br[C.KEY] = txn_key[0] if txn_key else np.nan
     po_br[C.CUSTOMER] = customer.title()
     po_br[C.SUBTOTAL] = po_br[C.DELIVERED] * po_br[C.WHOLESALE_PRICE] if txn_key == "V" else 0
-    po_br[C.DISCOUNT] = 0
     po_br[C.DISCOUNT] = po_br[C.SUBTOTAL] * dn_discounts
     po_br[C.SUBTOTAL_NET] = po_br[C.SUBTOTAL] - po_br[C.DISCOUNT]
     po_br[C.VAT] = po_br[C.SUBTOTAL_NET] * 1.16
