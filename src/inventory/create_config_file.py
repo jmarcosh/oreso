@@ -150,7 +150,7 @@ data = {
     "checklist_columns": [C.RD, C.MOVEX_PO, C.PO_NUM, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BRAND, C.INVENTORY, C.ORDERED, C.DELIVERED],
 
-    "inventory_summ_indexes": [C.STYLE, C.UPC, C.SKU, C.BRAND],
+    "inventory_summ_indexes": [C.UPC, C.BRAND, C.STYLE],
 
     "br_columns": [
         C.DELIVERY_DATE, C.KEY, C.CUSTOMER,
