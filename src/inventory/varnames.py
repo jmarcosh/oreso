@@ -58,3 +58,4 @@ class ColNames:
     FOB = 'FOB'
     X_FTY = 'X_FTY'
     WAREHOUSE = 'ALMACEN'
+    ACTION = 'ACTION'

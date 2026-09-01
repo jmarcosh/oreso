@@ -34,7 +34,7 @@ def read_temp_files(temp_files):
 
 def read_files(sp, temp_paths, log_id):
     config = sp.read_json("config/config.json")
-    inventory_df = sp.read_csv('INVENTARIO/INVENTARIO.csv')
+    inventory_df = sp.read_csv('INVENTARIO/SNAPSHOTS/INVENTARIO.csv')
     if sp.is_local:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         po_read_path = os.path.join(BASE_DIR, "../../files/drag_and_drop")  ##for local debugging
@@ -52,7 +52,7 @@ def read_files(sp, temp_paths, log_id):
     else: # po_type == 'supplier':
         matching_columns = ['index']
         cols = list(cols_rename.values())
-        action = 'on_order'
+        action = 'purchase'
     for df in [po_df, inventory_df]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
     return ((po_df.reset_index()

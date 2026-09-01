@@ -62,11 +62,9 @@ def create_and_save_inventory_summary_table(sp, updated_inv, config):
     sp.save_excel(inv_pivot, 'INVENTARIO/SUMMARY.xlsx')
 
 def filter_active_logs(logs):
-    active_logs = logs.loc[logs['status'] == 'success'].copy()
-    undo_pairs = logs.loc[logs['action'] == 'undo_inventory_update', ['po', 'log_id']]
-    undo_pairs["po"] = undo_pairs["po"].fillna(undo_pairs["log_id"]).astype(float)
-    for pair in undo_pairs.values:
-        active_logs = active_logs.loc[(active_logs['log_id'] < pair[0]) | (active_logs['log_id'] > pair[1])]
+    undo_logs = logs.loc[logs['action'] == 'undo_inventory_update', 'po'].dropna().astype(int).values
+    active_logs = logs.loc[(logs['status'] == 'success') & (logs['action'] != 'undo_inventory_update') &
+                           ~(logs['log_id'].isin(undo_logs))].copy()
     return active_logs
 
 def update_inventory_in_memory(sp, updated_inv, inventory, log_id, config):
@@ -200,16 +198,21 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
 
     return True
 
-def save_purchases_file_and_logs(sp, purchases: DataFrame, rd, log_id=None):
-    purchases[C.RECEIVED_DATE] = pd.to_datetime(purchases[C.RECEIVED_DATE]).dt.date
-    if C.X_FTY in purchases.columns:
-        purchases[C.X_FTY] = pd.to_datetime(purchases[C.X_FTY]).dt.date
-    if log_id:
-        purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{rd}.csv")
-        purchases_logs = pd.concat([purchases_logs, purchases[purchases[C.LOG_ID] == log_id]], ignore_index=True)
-        sp.save_csv(purchases_logs, f"COMPRAS/LOGS/logs_{rd}.csv")
-    sp.save_excel(purchases, f"COMPRAS/{rd}.xlsx")
-    sp.save_csv(purchases, f"COMPRAS/LOGS/{rd}.csv")
+def normalize_date_cols(df: DataFrame) -> DataFrame:
+    """`hard_memory` comes from a CSV and `purchases` from an Excel file, so dates arrive as strings on
+    one side and as timestamps on the other. Parse both so they compare on value, not on dtype."""
+    for col in [C.RECEIVED_DATE, C.X_FTY]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce', format='mixed').dt.date
+    return df
+
+def save_purchases_file_and_logs(sp, table, purchases: DataFrame, purchases_logs=None):
+    purchases = normalize_date_cols(purchases)
+    if purchases_logs is not None:
+        purchases_logs = normalize_date_cols(purchases_logs)
+        sp.save_csv(purchases_logs, f"COMPRAS/LOGS/logs_{table}.csv")
+    sp.save_excel(purchases, f"COMPRAS/{table}.xlsx")
+    sp.save_csv(purchases, f"COMPRAS/LOGS/{table}.csv")
 
 def read_or_create_file(sp, file_path):
     """

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 
-from inventory.common_app import extract_size_from_style, convert_numeric_id_cols_to_text, \
+from inventory.common_app import extract_size_from_style, \
     validate_unique_ids_and_status_in_updatable_table, read_or_create_file, save_purchases_file_and_logs
 from inventory.process_orders_utils import add_dash_before_size
 from inventory.varnames import ColNames as C
@@ -65,7 +65,7 @@ def add_inventory_cols(po, inventory):
 
 
 
-def update_purchases_table(sp, po, rd, config, log_id):
+def update_purchases_table(sp, po, table, config, log_id):
     """
     Updates an Excel file in SharePoint by appending new purchase order data.
 
@@ -73,7 +73,7 @@ def update_purchases_table(sp, po, rd, config, log_id):
     - files_save_path: str, the SharePoint path to the Excel file.
     - po: pd.DataFrame, the new purchase order data to append.
     """
-    purchases_file_path = f"COMPRAS/{rd}.xlsx"
+    purchases_file_path = f"COMPRAS/{table}.xlsx"
     purchases = read_or_create_file(sp, purchases_file_path)
     if purchases is None:
         return
@@ -81,7 +81,9 @@ def update_purchases_table(sp, po, rd, config, log_id):
     # Append new data and save back to SharePoint
     purchases = pd.concat([purchases, po], ignore_index=True)
     validate_unique_ids_and_status_in_updatable_table(purchases, config)
-    save_purchases_file_and_logs(sp, purchases, rd, log_id)
+    purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{table}.csv")
+    purchases_logs = pd.concat([purchases_logs, po], ignore_index=True)
+    save_purchases_file_and_logs(sp, table, purchases, purchases_logs)
     return purchases_file_path
 
 

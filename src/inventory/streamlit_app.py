@@ -121,7 +121,7 @@ def undo_section():
                 st.error("Please enter a valid number.")
             else:
                 reversed_actions = undo_inventory_update(recovery_id_int)
-                st.success("Done. The following actions have been reversed")
+                st.success("Done. The following action has been reversed")
                 st.dataframe(
                     reversed_actions,
                     use_container_width=True,

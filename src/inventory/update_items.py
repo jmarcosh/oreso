@@ -10,7 +10,7 @@ from api_integrations.sharepoint_client import SharePointClient
 from inventory.common_app import (stop_if_locked_files, record_log, update_inventory_in_memory,
                                   extract_size_from_style, warn_processed_orders, create_and_save_techsmart_txt_file,
                                   convert_numeric_id_cols_to_text, validate_unique_ids_and_status_in_updatable_table,
-                                  save_purchases_file_and_logs)
+                                  save_purchases_file_and_logs, read_or_create_file)
 from inventory.varnames import ColNames as C
 
 def _unify_similar_costs(lst):
@@ -89,7 +89,6 @@ def update_inventory_from_purchases(common_index: Index, log_id: int, purchases:
     update_mask = ~(
         updated_inv.loc[common_index, cols].fillna(-99)
         .eq(purchases.loc[common_index, cols].fillna(-99))
-        .fillna(True)  # NaNs considered equal
         .all(axis=1)
     )
     update_index = common_index[update_mask]
@@ -143,7 +142,7 @@ def get_from_active_to_inactive_index(common_index: Index, purchases: DataFrame,
 
 
 
-def update_items_from_on_order_to_warehouse(common_index: Index, config: dict, delivery_date: str, log_id: int,
+def create_inbound_receipts_and_add_cost(common_index: Index, config: dict, delivery_date: str, log_id: int,
                                             purchases: DataFrame, sp: SharePointClient, action: str,
                                             updated_inv: DataFrame, logs: DataFrame) -> tuple[DataFrame, str,  list | None]:
     on_order_to_warehouse_index = ((updated_inv.loc[common_index, C.WAREHOUSE] == 'on_order') &
@@ -242,7 +241,7 @@ def validate_goods_receipt_table(receipt: DataFrame):
 
 
 def find_common_rows_with_inventory(inventory: DataFrame, purchases: DataFrame) -> tuple[DataFrame, Index]:
-    updated_inv = inventory.copy().sort_index()
+    updated_inv = inventory.copy()
     updated_inv.set_index([C.MOVEX_PO, C.UPC], inplace=True)
     purchases.set_index([C.MOVEX_PO, C.UPC], inplace=True)
     common_index = updated_inv.index.intersection(purchases.index)
@@ -317,8 +316,9 @@ def update_items_from_purchases_table(table, delivery_date):
     purchases_original_column_order = purchases.columns
     record_log(sp, logs, log_id, po_type, action, "started")
     updated_inv, common_index = find_common_rows_with_inventory(inventory, purchases)
-    purchases, action, files_save_path = update_items_from_on_order_to_warehouse(common_index, config, delivery_date, log_id,
-                                                                         purchases, sp, action, updated_inv, logs)
+    purchases, action, files_save_path = create_inbound_receipts_and_add_cost(common_index, config, delivery_date,
+                                                                              log_id, purchases, sp, action,
+                                                                              updated_inv, logs)
     active_to_inactive, inactive_to_warehouse, inactive_to_on_order = get_active_inactive_changes(common_index, purchases, updated_inv)
     purchases, updated_inv = update_inventory_from_purchases(common_index, log_id, purchases, updated_inv)
     # updated_inv = reset_rows_and_columns_order(updated_inv, original_column_order)
@@ -340,7 +340,9 @@ def update_items_from_purchases_table(table, delivery_date):
 def save_updated_purchases_table(purchases: DataFrame, purchases_original_column_order: Index,
                                  sp: SharePointClient, table, log_id: int):
     purchases = purchases.reset_index()[purchases_original_column_order]
-    save_purchases_file_and_logs(sp, purchases, table, log_id)
+    purchases_logs = read_or_create_file(sp, f"COMPRAS/LOGS/logs_{table}.csv")
+    purchases_logs = pd.concat([purchases_logs, purchases[purchases[C.LOG_ID] == log_id]], ignore_index=True)
+    save_purchases_file_and_logs(sp, table, purchases, purchases_logs)
 
 
 

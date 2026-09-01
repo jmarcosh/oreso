@@ -62,7 +62,7 @@ def run_process_orders(delivery_date:str, temp_paths:list =[]):
 
 
 if __name__ == '__main__':
-    DELIVERY_DATE = "04/25/2026"
+    DELIVERY_DATE = "08/25/2026"
     files_path = run_process_orders(DELIVERY_DATE)  #, update_from_sharepoint="B25"
     # parser = argparse.ArgumentParser(description="Run PO Parser with delivery date and RFID series.")
     #
