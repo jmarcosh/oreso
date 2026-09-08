@@ -66,7 +66,7 @@ def _unify_similar_costs(lst):
     return pd.Series(result)
 
 
-sp = SharePointClient(site='servoreso', dry_run=False,  config_path="../config_files/secrets.toml")
+sp = SharePointClient(site='servoreso', dry_run=False)
 customs_data = sp.read_excel("Imports/Templates/customs.xlsx")
 customs_data['STYLE'] = customs_data['STYLE'].astype(str)
 pars = sp.read_excel("Imports/Templates/parameters.xlsx").set_index('input')
@@ -75,7 +75,7 @@ RD = pars.loc['rd', 'value']
 SHIPMENT_ID = pars.loc['shipment_id', 'value']
 CUSTOMS_ID = pars.loc['customs_id', 'value']
 
-invoc = SharePointClient(site='invoc', dry_run=False,  config_path="../config_files/secrets.toml")
+invoc = SharePointClient(site='invoc', dry_run=False)
 product_data = invoc.read_excel(f"COMPRAS/{RD[:3]}.xlsx")
 product_data = product_data[product_data["RD"] == RD].reset_index(drop=True)
 config = invoc.read_json("config/config.json")
