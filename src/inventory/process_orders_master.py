@@ -3,7 +3,8 @@ from datetime import datetime
 import streamlit as st
 
 from inventory.assign_warehouse_codes import assign_warehouse_codes_from_column_and_update_inventory
-from inventory.common_app import record_log, update_inventory_in_memory, stop_if_locked_files, warn_processed_orders
+from inventory.common_app import record_log, update_inventory_in_memory, stop_if_locked_files, \
+    warn_processed_orders, InventoryLog
 from inventory.process_orders_utils import read_files, allocate_stock, update_billing_record, \
     save_raw_po_and_create_file_paths
 from inventory.process_internal_orders import run_internal_orders
@@ -34,13 +35,14 @@ def run_process_orders(delivery_date:str, temp_paths:list =[]):
     stop_if_locked_files(sp)
     logs = sp.read_csv("logs/logs.csv")
     po, inventory, config, po_type, matching_columns, action = read_files(sp, temp_paths, log_id)
+    inv_log = InventoryLog(log_id)
     record_log(sp, logs, log_id, po_type, action, "started")
     po_nums = warn_processed_orders(logs, po, po_type)
     if po_type in config.get("customers"):
         customer = po_type
         po[C.DELIVERED] = allocate_stock(po, inventory, matching_columns)
         po[C.DELIVERY_DATE] = delivery_date
-        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_columns, log_id)
+        po, updated_inv = assign_warehouse_codes_from_column_and_update_inventory(po, inventory, matching_columns, inv_log)
         files_save_path = save_raw_po_and_create_file_paths(sp, customer, delivery_date, po, po_nums, log_id)
         if customer in config.get("customers_rfid"):
             po = run_process_customer_orders(sp, po, config, customer, delivery_date, files_save_path, log_id)
@@ -53,8 +55,8 @@ def run_process_orders(delivery_date:str, temp_paths:list =[]):
                 st.stop()
         update_billing_record(sp, po, po_type, delivery_date, config, txn_key, log_id)
     else: # po_type == supplier
-        updated_inv, files_save_path = process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, log_id)
-    update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
+        updated_inv, files_save_path = process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, inv_log)
+    update_inventory_in_memory(sp, updated_inv, inv_log, config)
     po_nums_str = "_".join(po_nums)
     record_log(sp, logs, log_id, po_type, action, "success", po_nums_str, files_save_path)
     return files_save_path

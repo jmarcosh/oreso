@@ -23,10 +23,10 @@ def validate_file(df, po_type, config):
         st.stop()
 
 
-def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, log_id):
+def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, inv_log):
     po = po.loc[~po[C.RD].isna()].reset_index(drop=True)
     validate_file(po, po_type, config)
-    po[C.LOG_ID] = log_id
+    po[C.LOG_ID] = inv_log.log_id
     po[C.WAREHOUSE_CODE] = po[C.UPC].astype(int)
     # po[C.WAREHOUSE_CODE] = (po[C.MOVEX_PO]
     #                         .fillna(0)
@@ -43,8 +43,9 @@ def process_supplier_orders(sp, po, inventory, po_type, config, delivery_date, l
     po[C.WAREHOUSE] = "on_order"
     po[C.INVOICE_NUM] = np.nan
     rd = po.loc[0, C.RD]
-    files_path = update_purchases_table(sp, po, rd[:3], config, log_id)
+    files_path = add_po_to_purchases_table(sp, po, rd[:3], config)
     po = add_inventory_cols(po, inventory)
+    inv_log.add(po[inventory.columns], 'added')
     updated_inv = pd.concat([inventory, po[inventory.columns]], ignore_index=True)
     return updated_inv, files_path
 
@@ -65,7 +66,7 @@ def add_inventory_cols(po, inventory):
 
 
 
-def update_purchases_table(sp, po, table, config, log_id):
+def add_po_to_purchases_table(sp, po, table, config):
     """
     Updates an Excel file in SharePoint by appending new purchase order data.
 

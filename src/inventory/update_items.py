@@ -10,7 +10,7 @@ from api_integrations.sharepoint_client import SharePointClient
 from inventory.common_app import (stop_if_locked_files, record_log, update_inventory_in_memory,
                                   extract_size_from_style, warn_processed_orders, create_and_save_techsmart_txt_file,
                                   convert_numeric_id_cols_to_text, validate_unique_ids_and_status_in_updatable_table,
-                                  save_purchases_file_and_logs, read_or_create_file)
+                                  save_purchases_file_and_logs, read_or_create_file, InventoryLog, normalize_date_cols)
 from inventory.varnames import ColNames as C
 
 def _unify_similar_costs(lst):
@@ -38,27 +38,30 @@ def get_po_nums(files_save_path) -> str | None:
 
 def insert_and_delete_status_rows(active_to_inactive: Index,
                                   inactive_to_on_order: Series,
-                                  inactive_to_warehouse: Series, log_id: int, purchases: DataFrame,
+                                  inactive_to_warehouse: Series, inv_log: InventoryLog, purchases: DataFrame,
                                   updated_inv: DataFrame) -> tuple[DataFrame, DataFrame]:
-    updated_inv = delete_inactive_rows(active_to_inactive, updated_inv)
+    updated_inv = delete_inactive_rows(active_to_inactive, inv_log, updated_inv)
 
-    updated_inv = insert_active_rows(inactive_to_on_order, inactive_to_warehouse, log_id, purchases, updated_inv)
-    purchases.loc[(inactive_to_warehouse | inactive_to_on_order), C.LOG_ID] = log_id
+    updated_inv = insert_active_rows(inactive_to_on_order, inactive_to_warehouse, inv_log, purchases, updated_inv)
+    purchases.loc[(inactive_to_warehouse | inactive_to_on_order), C.LOG_ID] = inv_log.log_id
     return purchases, updated_inv
 
 
 def insert_active_rows(inactive_to_on_order: Series,
-                       inactive_to_warehouse: Series, log_id: int, purchases: DataFrame,
+                       inactive_to_warehouse: Series, inv_log: InventoryLog, purchases: DataFrame,
                        updated_inv: DataFrame) -> DataFrame:
-    purchases_warehouse = filter_rows_in_warehouse(inactive_to_warehouse, log_id, purchases)
+    purchases_warehouse = filter_rows_in_warehouse(inactive_to_warehouse, inv_log.log_id, purchases)
 
-    purchases_on_order = filter_rows_on_order(inactive_to_on_order, log_id, purchases)
+    purchases_on_order = filter_rows_on_order(inactive_to_on_order, inv_log.log_id, purchases)
     updated_inv_cols = updated_inv.columns
-    updated_inv = pd.concat([updated_inv, purchases_warehouse, purchases_on_order])[updated_inv_cols]
+    inserted = pd.concat([purchases_warehouse, purchases_on_order])
+    updated_inv = pd.concat([updated_inv, inserted])[updated_inv_cols]
+    inv_log.add(inserted.reindex(columns=updated_inv_cols), 'added')
     return updated_inv
 
 
-def delete_inactive_rows(active_to_inactive: Index, updated_inv: DataFrame) -> DataFrame:
+def delete_inactive_rows(active_to_inactive: Index, inv_log: InventoryLog, updated_inv: DataFrame) -> DataFrame:
+    inv_log.add(updated_inv.loc[updated_inv.index.isin(active_to_inactive)], 'removed')
     updated_inv = updated_inv[~updated_inv.index.isin(active_to_inactive)]
     return updated_inv
 
@@ -83,7 +86,7 @@ def add_inventory_cols_to_purchases(log_id: int, purchases: DataFrame, inventory
     return purchases
 
 
-def update_inventory_from_purchases(common_index: Index, log_id: int, purchases: DataFrame,
+def update_inventory_from_purchases(common_index: Index, inv_log: InventoryLog, purchases: DataFrame,
                                     updated_inv: DataFrame):
     cols = updated_inv.columns.intersection(purchases.columns).difference([C.LOG_ID])
     update_mask = ~(
@@ -94,8 +97,9 @@ def update_inventory_from_purchases(common_index: Index, log_id: int, purchases:
     update_index = common_index[update_mask]
     purchases_with_data =  purchases.drop("0", level="MOVEX_PO", errors="ignore")
     updated_inv.update(purchases_with_data[cols])
-    updated_inv.loc[update_index, C.LOG_ID] = log_id
-    purchases.loc[update_index, C.LOG_ID] = log_id
+    updated_inv.loc[update_index, C.LOG_ID] = inv_log.log_id
+    purchases.loc[update_index, C.LOG_ID] = inv_log.log_id
+    inv_log.add(updated_inv.loc[update_index], 'modified')
     return purchases, updated_inv
 
 
@@ -253,6 +257,7 @@ def read_files_and_validate_updatable_table(sp: SharePointClient, table: str) ->
     inventory = sp.read_csv('INVENTARIO/INVENTARIO.csv')
     for df in [purchases, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
+    normalize_date_cols(inventory)
     config = sp.read_json("config/config.json")
     validate_no_changes_in_id_cols(purchases, sp, table)
     validate_unique_ids_and_status_in_updatable_table(purchases, config)
@@ -315,17 +320,18 @@ def update_items_from_purchases_table(table, delivery_date):
     purchases, inventory, config, po_type, action = read_files_and_validate_updatable_table(sp, table)
     purchases_original_column_order = purchases.columns
     record_log(sp, logs, log_id, po_type, action, "started")
+    inv_log = InventoryLog(log_id)
     updated_inv, common_index = find_common_rows_with_inventory(inventory, purchases)
     purchases, action, files_save_path = create_inbound_receipts_and_add_cost(common_index, config, delivery_date,
                                                                               log_id, purchases, sp, action,
                                                                               updated_inv, logs)
     active_to_inactive, inactive_to_warehouse, inactive_to_on_order = get_active_inactive_changes(common_index, purchases, updated_inv)
-    purchases, updated_inv = update_inventory_from_purchases(common_index, log_id, purchases, updated_inv)
+    purchases, updated_inv = update_inventory_from_purchases(common_index, inv_log, purchases, updated_inv)
     # updated_inv = reset_rows_and_columns_order(updated_inv, original_column_order)
     purchases, updated_inv = insert_and_delete_status_rows(active_to_inactive, inactive_to_on_order,
-                                                           inactive_to_warehouse, log_id, purchases, updated_inv)
+                                                           inactive_to_warehouse, inv_log, purchases, updated_inv)
     updated_inv = restore_inventory_row_and_columns_order(inventory, updated_inv, active_to_inactive)
-    update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
+    update_inventory_in_memory(sp, updated_inv, inv_log, config)
     save_updated_purchases_table(purchases, purchases_original_column_order, sp, table, log_id)
     po_nums_str = get_po_nums(files_save_path)
     if not po_nums_str:
@@ -359,4 +365,4 @@ def restore_inventory_row_and_columns_order(inventory: DataFrame, updated_inv: D
 if __name__ == '__main__':
     DELIVERY_DATE = "01/21/2026"
 
-    update_items_from_purchases_table('B24', DELIVERY_DATE)
+    update_items_from_purchases_table('B26', DELIVERY_DATE)

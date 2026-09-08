@@ -8,7 +8,8 @@ from pandas import DataFrame
 
 from inventory.common_app import record_log, filter_active_logs, \
     create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files, read_or_create_file, \
-    save_purchases_file_and_logs, convert_numeric_id_cols_to_text, add_nan_cols, normalize_date_cols
+    save_purchases_file_and_logs, convert_numeric_id_cols_to_text, add_nan_cols, normalize_date_cols, \
+    InventoryLog
 from inventory.update_items import find_common_rows_with_inventory, get_active_inactive_changes, \
     update_inventory_from_purchases, insert_and_delete_status_rows, restore_inventory_row_and_columns_order
 from inventory.varnames import ColNames as C
@@ -25,7 +26,7 @@ def undo_rfid(sp, recovery_id, undo_log):
     sp.save_excel(rfid_df, f"config/rfid_{customer}.xlsx")
 
 
-def undo_withdrawal_in_inventory(sp, recovery_id, config):
+def undo_withdrawal_in_inventory(sp, recovery_id, inv_log, config):
     records = sp.read_csv("FACTURACION/FACTURACION.csv")
     inventory = sp.read_csv(f"INVENTARIO/SNAPSHOTS/INVENTARIO.csv")
     for df in [records, inventory]:
@@ -35,14 +36,16 @@ def undo_withdrawal_in_inventory(sp, recovery_id, config):
     undo = records.loc[logid_condition].copy()
     records = records.loc[~logid_condition]
     merge_cols = [C.MOVEX_PO, C.UPC]
-    inventory_index = inventory.index
     updated_inv = inventory.merge(undo[merge_cols + [C.DELIVERED]], on=merge_cols, how="left")
-    updated_inv.index = inventory_index
     updated_inv[C.DELIVERED] = updated_inv[C.DELIVERED].fillna(0)
     updated_inv[C.INVENTORY] = updated_inv[C.INVENTORY] + updated_inv[C.DELIVERED]
+    returned = updated_inv[C.DELIVERED] != 0
+    updated_inv.loc[returned, C.LOG_ID] = inv_log.log_id
+    # logged before dropping C.DELIVERED, so the log shows how much came back next to the new quantity
+    inv_log.add(updated_inv.loc[returned], 'modified')
     updated_inv = updated_inv.drop(columns=[C.DELIVERED])
 
-    update_inventory_in_memory(sp, updated_inv, updated_inv, recovery_id, config)
+    update_inventory_in_memory(sp, updated_inv, inv_log, config)
     sp.save_csv(records, "FACTURACION/FACTURACION.csv")
     create_and_save_br_summary_table(sp, records, config)
 
@@ -65,18 +68,18 @@ def undo_inventory_update(undo_id=None):
         st.write("The log id should be active")
         st.stop()
     config = sp.read_json("config/config.json")
-
+    inv_log = InventoryLog(log_id)
     undo_log = active_logs.loc[active_logs['log_id'] == undo_id].squeeze()
     action = undo_log['action']
     if action == 'withdrawal':
         undo_rfid(sp, undo_id, undo_log)
-        undo_withdrawal_in_inventory(sp, undo_id, config)
+        undo_withdrawal_in_inventory(sp, undo_id, inv_log, config)
         folder_path = undo_log['files_path']
         if pd.notna(folder_path):
             new_name = f"{folder_path.split('/')[-1]}_UNDO_{log_id}"
             sp.rename_folder(folder_path, new_name)
     elif action in ['purchase', 'update']:
-        undo_purchases_table(sp, undo_id, undo_log, action, log_id, config)
+        undo_purchases_table(sp, undo_id, undo_log, action, inv_log, config)
     elif action == 'receipt':
         st.write('Undo receipts not supported yet')
         st.stop()
@@ -84,7 +87,8 @@ def undo_inventory_update(undo_id=None):
     return undo_log[['log_id', 'po_type', 'action', 'po']]
 
 
-def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame, action:str, log_id: int, config: dict):
+def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame, action:str,
+                         inv_log: InventoryLog, config: dict):
     files_path = undo_log['files_path']
     if np.isnan(files_path):
         undo_table = undo_log['po']
@@ -105,7 +109,7 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
     removed = undone.loc[~undone.index.isin(restored.index)].copy()
     removed[C.ACTION] = 'removed'
     reverted = pd.concat([restored, removed])
-    reverted[C.LOG_ID] = log_id
+    reverted[C.LOG_ID] = inv_log.log_id
 
     purchases_logs = pd.concat([purchases_logs, reverted])
     purchases_last = purchases_logs.loc[~purchases_logs.index.duplicated(keep="last")]
@@ -124,12 +128,13 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
     save_purchases_file_and_logs(sp, undo_table, purchases_new, purchases_logs)
     inventory = sp.read_csv(f"INVENTARIO/SNAPSHOTS/INVENTARIO.csv")
     convert_numeric_id_cols_to_text(inventory, [C.MOVEX_PO, C.UPC, C.SKU, C.WAREHOUSE_CODE])
-    inventory = normalize_date_cols(inventory)
+    normalize_date_cols(inventory)
 
     if action == 'purchase':
         # The undone run created these rows, so they leave the inventory altogether.
         updated_inv = inventory.set_index([C.MOVEX_PO, C.UPC])
         active_to_inactive = removed.index
+        inv_log.add(updated_inv.loc[updated_inv.index.isin(active_to_inactive)], 'removed')
         updated_inv = updated_inv.loc[~updated_inv.index.isin(active_to_inactive)]
     else: # action == 'update':
         updated_inv, common_index = find_common_rows_with_inventory(inventory, purchases_new)
@@ -137,18 +142,18 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
         active_to_inactive, inactive_to_warehouse, inactive_to_on_order = get_active_inactive_changes(common_index,
                                                                                                       purchases_new,
                                                                                                       updated_inv)
-        purchases_new, updated_inv = update_inventory_from_purchases(common_index, log_id, purchases_new, updated_inv)
+        purchases_new, updated_inv = update_inventory_from_purchases(common_index, inv_log, purchases_new, updated_inv)
         purchases_new, updated_inv = insert_and_delete_status_rows(active_to_inactive, inactive_to_on_order,
-                                                                   inactive_to_warehouse, log_id, purchases_new, updated_inv)
+                                                                   inactive_to_warehouse, inv_log, purchases_new, updated_inv)
 
     updated_inv = restore_inventory_row_and_columns_order(inventory, updated_inv, active_to_inactive)
 
-    update_inventory_in_memory(sp, updated_inv, inventory, log_id, config)
+    update_inventory_in_memory(sp, updated_inv, inv_log, config)
 
 
 
 if __name__ == '__main__':
-    undo_inventory_update(20260827180041)
+    undo_inventory_update(20260908191035)
 
 
 # TODO add updated files to log

@@ -9,6 +9,10 @@ from pandas import DataFrame
 
 from inventory.varnames import ColNames as C
 
+INVENTORY_LOG_FOLDER = 'INVENTARIO/LOGS'
+INVENTORY_LOG_PATH = f'{INVENTORY_LOG_FOLDER}/logs_inventory.csv'
+INVENTORY_KEYS = [C.MOVEX_PO, C.UPC]
+
 
 def record_active_logs(sp, logs_u):
     active_logs = filter_active_logs(logs_u)
@@ -67,14 +71,40 @@ def filter_active_logs(logs):
                            ~(logs['log_id'].isin(undo_logs))].copy()
     return active_logs
 
-def update_inventory_in_memory(sp, updated_inv, inventory, log_id, config):
-    updated_inv[C.RECEIVED_DATE] = pd.to_datetime(updated_inv[C.RECEIVED_DATE]).dt.date
-    # for col in [C.WAREHOUSE_CODE, C.UPC, C.SKU]:
-    #     updated_inv[col] = updated_inv[col].astype(int)
+class InventoryLog:
+    """Collects inventory rows as they are modified, so an action appends only the rows it touched
+    instead of dropping a full snapshot. Rows are logged where the change happens, which also lets a
+    caller keep context columns the inventory table itself does not have, e.g. C.DELIVERED."""
+
+    def __init__(self, log_id: int):
+        self.log_id = log_id
+        self.entries = []
+
+    def add(self, rows: DataFrame, action: str):
+        """`action` says what happened to the row: 'added', 'modified' or 'removed'. Added and
+        modified rows are logged in their post change state, removed ones as they were last seen."""
+        if rows.empty:
+            return
+        entry = rows.reset_index() if set(INVENTORY_KEYS).issubset(rows.index.names) else rows.copy()
+        entry[C.ACTION] = action
+        entry[C.LOG_ID] = self.log_id
+        self.entries.append(entry)
+
+    def save(self, sp):
+        if not self.entries:
+            return
+        log = read_or_create_file(sp, INVENTORY_LOG_PATH)
+        if log.empty:
+            sp.create_folder_path(INVENTORY_LOG_FOLDER)
+        sp.save_csv(pd.concat([log, *self.entries], ignore_index=True), INVENTORY_LOG_PATH)
+
+
+def update_inventory_in_memory(sp, updated_inv, inv_log: 'InventoryLog', config):
     sp.save_csv(updated_inv, 'INVENTARIO/INVENTARIO.csv')
     sp.save_csv(updated_inv, 'INVENTARIO/SNAPSHOTS/INVENTARIO.csv')
-    sp.save_csv(inventory, f'INVENTARIO/SNAPSHOTS/inventory_{log_id}.csv')
+    inv_log.save(sp)
     create_and_save_inventory_summary_table(sp, updated_inv, config)
+
 
 def extract_size_from_style(df) -> list[Any | None]:
     return [x.rsplit('-', 1)[-1] if '-' in x else None for x in df[C.STYLE]]
@@ -198,18 +228,17 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
 
     return True
 
-def normalize_date_cols(df: DataFrame) -> DataFrame:
+def normalize_date_cols(df: DataFrame):
     """`hard_memory` comes from a CSV and `purchases` from an Excel file, so dates arrive as strings on
     one side and as timestamps on the other. Parse both so they compare on value, not on dtype."""
     for col in [C.RECEIVED_DATE, C.X_FTY]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce', format='mixed').dt.date
-    return df
 
 def save_purchases_file_and_logs(sp, table, purchases: DataFrame, purchases_logs=None):
-    purchases = normalize_date_cols(purchases)
+    normalize_date_cols(purchases)
     if purchases_logs is not None:
-        purchases_logs = normalize_date_cols(purchases_logs)
+        normalize_date_cols(purchases_logs)
         sp.save_csv(purchases_logs, f"COMPRAS/LOGS/logs_{table}.csv")
     sp.save_excel(purchases, f"COMPRAS/{table}.xlsx")
     sp.save_csv(purchases, f"COMPRAS/LOGS/{table}.csv")

@@ -5,7 +5,7 @@ from inventory.varnames import ColNames as C
 
 
 
-def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, columns, log_id):
+def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, columns, inv_log):
     mask = inventory[C.WAREHOUSE].isin(['on_order', 'inactive'])
     inventory_copy = inventory[~mask].copy()
     out_of_order = inventory[mask]
@@ -22,7 +22,7 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
         it += 1
         po, to_deliver = assign_warehouse_codes(po, inventory_wh, columns)
         po_wh.append(po.loc[po[C.DELIVERED] != 0].copy())
-        update_inventory(inventory_wh, po, updated_inv, columns, log_id)
+        update_inventory(inventory_wh, po, updated_inv, columns, inv_log)
         po[C.DELIVERED] = to_deliver
         po = po.loc[po[C.DELIVERED] > 0, po_original_cols]
         if len(po) == 0:
@@ -76,13 +76,16 @@ def split_df_by_columns(df, columns):
         df = df.drop(index=unique_df.index)
     return split_dfs
 
-def update_inventory(inventory_wh, po, updated_inv, columns, log_id):
+def update_inventory(inventory_wh, po, updated_inv, columns, inv_log):
     inventory_wh_index = inventory_wh.index
     inventory_wh = inventory_wh.merge(po.groupby(columns)[C.DELIVERED].sum().reset_index(), on=columns, how="left")
     inventory_wh.index = inventory_wh_index
     inventory_wh[C.DELIVERED] = inventory_wh[C.DELIVERED].fillna(0)
-    inventory_wh.loc[inventory_wh[C.DELIVERED] > 0, C.LOG_ID] = log_id
+    withdrawn = inventory_wh[C.DELIVERED] != 0
+    inventory_wh.loc[withdrawn, C.LOG_ID] = inv_log.log_id
     inventory_wh[C.INVENTORY] = inventory_wh[C.INVENTORY] - inventory_wh[C.DELIVERED]
+    # logged before dropping C.DELIVERED, so the log shows how much moved next to the new quantity
+    inv_log.add(inventory_wh.loc[withdrawn], 'withdrawn')
     updated_inv.append(inventory_wh.drop(columns=[C.DELIVERED]))
 
 def split_ordered_quantity_by_warehouse_codes(po, column):
