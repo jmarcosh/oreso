@@ -27,16 +27,14 @@ def undo_rfid(sp, recovery_id, undo_log):
 
 def undo_withdrawal_in_inventory(sp, recovery_id, config):
     records = sp.read_csv("FACTURACION/FACTURACION.csv")
-    logid_condition = records[C.LOG_ID] == recovery_id
-    undo = records.loc[logid_condition].copy()
-    records = records.loc[~logid_condition]
-    records[C.DELIVERY_DATE] = pd.to_datetime(records[C.DELIVERY_DATE]).dt.date
     inventory = sp.read_csv(f"INVENTARIO/SNAPSHOTS/INVENTARIO.csv")
     for df in [records, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
+    records[C.DELIVERY_DATE] = pd.to_datetime(records[C.DELIVERY_DATE]).dt.date
+    logid_condition = records[C.LOG_ID] == recovery_id
+    undo = records.loc[logid_condition].copy()
+    records = records.loc[~logid_condition]
     merge_cols = [C.MOVEX_PO, C.UPC]
-    # for df in [undo, inventory]:
-    #     convert_numeric_id_cols_to_text(df, merge_cols)
     inventory_index = inventory.index
     updated_inv = inventory.merge(undo[merge_cols + [C.DELIVERED]], on=merge_cols, how="left")
     updated_inv.index = inventory_index
