@@ -86,7 +86,7 @@ data = {
 
     "ts_columns_csv": [
         'Código Tecs', 'Grupo', 'Descripción', 'Sku',
-        '# Sucursal', 'Contenedor', 'Cantidad'
+        '# Sucursal', 'Nombre sucursal', 'Contenedor', 'Cantidad'
     ],
 
     "ts_columns_txt": [
