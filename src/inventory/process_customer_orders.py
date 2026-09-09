@@ -113,7 +113,7 @@ def upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files
     section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
-    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums_abbrev, files_save_path)
+    techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, files_save_path)
     save_checklist(sp, po_style, po_store, techsmart, config, po_nums_abbrev, files_save_path)
     create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, section, files_save_path)
     create_and_save_asn_file(sp, po, config, po_nums_abbrev, files_save_path)

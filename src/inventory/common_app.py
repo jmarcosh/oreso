@@ -141,7 +141,7 @@ def convert_numeric_id_cols_to_text(df, cols):
             df[col] = (pd.to_numeric(df[col], errors='coerce').fillna(df[col].fillna(0))
                        .astype(str).replace(r'\..*$', '', regex=True))
 
-def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums_abbrev, files_save_path):
+def create_and_save_techsmart_txt_file(sp, po, customer, config, files_save_path):
     ts_rename = config["ts_rename"]
     ts_columns_txt = config["ts_columns_txt"]
     ts_columns_csv = config["ts_columns_csv"]
@@ -155,9 +155,13 @@ def create_and_save_techsmart_txt_file(sp, po, customer, config, po_nums_abbrev,
     ts['Unidad'] = 'pzas'
     ts['Caja final'] = ts['Caja inicial']
     add_nan_cols(ts, list(set(ts_columns_txt + ts_columns_csv)))
-    # sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums_abbrev)}.txt", sep='\t')
-    sp.save_csv(ts[ts_columns_txt], f"{files_save_path}/techsmart_{str(po_nums_abbrev)}.csv")
+    # one file per ('Tipo', '# OC') pair, techsmart does not accept mixed files
+    for (tipo, po_num), ts_group in ts.groupby(['Tipo', '# OC'], dropna=False, sort=False):
+        file_name = f"techsmart_{str(po_num)}_{tipo}"
+        sp.save_csv(ts_group[ts_columns_txt], f"{files_save_path}/{file_name}.txt", sep='\t')
+        sp.save_csv(ts_group.reset_index()[ts_columns_txt], f"{files_save_path}/{file_name}.csv")
     return ts[ts_columns_csv]
+
 
 def add_nan_cols(df, cols):
     for col in cols:
@@ -231,7 +235,7 @@ def validate_rfid_series(rfid_series_str: str) -> bool:
 def normalize_date_cols(df: DataFrame):
     """`hard_memory` comes from a CSV and `purchases` from an Excel file, so dates arrive as strings on
     one side and as timestamps on the other. Parse both so they compare on value, not on dtype."""
-    for col in [C.RECEIVED_DATE, C.X_FTY]:
+    for col in [C.RECEIVED_DATE, C.X_FTY, C.DELIVERY_DATE]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce', format='mixed').dt.date
 

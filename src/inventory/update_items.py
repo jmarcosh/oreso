@@ -88,6 +88,8 @@ def add_inventory_cols_to_purchases(log_id: int, purchases: DataFrame, inventory
 
 def update_inventory_from_purchases(common_index: Index, inv_log: InventoryLog, purchases: DataFrame,
                                     updated_inv: DataFrame):
+    for df in [purchases, updated_inv]:
+        normalize_date_cols(df)
     cols = updated_inv.columns.intersection(purchases.columns).difference([C.LOG_ID])
     update_mask = ~(
         updated_inv.loc[common_index, cols].fillna(-99)
@@ -179,7 +181,7 @@ def save_goods_receipt_and_techsmart_files(config: dict, delivery_date: str, log
         sp.save_excel(receipts[rd], file_save_path + f"/{rd}.xlsx")
         sp.save_excel(proformas[rd], file_save_path + f"/proforma_{rd}.xlsx")
         pre_techsmart = preprocess_receipts_for_techsmart_conversion(receipts[rd])
-        create_and_save_techsmart_txt_file(sp, pre_techsmart, 'Oreso', config, rd, file_save_path)
+        create_and_save_techsmart_txt_file(sp, pre_techsmart, 'Oreso', config, file_save_path)
         files_save_path.append(file_save_path)
     return files_save_path
 

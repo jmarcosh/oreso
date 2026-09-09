@@ -31,7 +31,7 @@ def undo_withdrawal_in_inventory(sp, recovery_id, inv_log, config):
     inventory = sp.read_csv(f"INVENTARIO/SNAPSHOTS/INVENTARIO.csv")
     for df in [records, inventory]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
-    records[C.DELIVERY_DATE] = pd.to_datetime(records[C.DELIVERY_DATE]).dt.date
+        normalize_date_cols(df)
     logid_condition = records[C.LOG_ID] == recovery_id
     undo = records.loc[logid_condition].copy()
     records = records.loc[~logid_condition]
