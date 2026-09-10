@@ -17,8 +17,7 @@ from api_integrations.sharepoint_client import SharePointClient
 
 
 
-def undo_rfid(sp, recovery_id, undo_log):
-    customer = undo_log['po_type']
+def undo_rfid(sp, recovery_id, customer):
     rfid_df = sp.read_excel(f"config/rfid_{customer}.xlsx")
     log_id_num = pd.to_numeric(rfid_df[C.LOG_ID], errors='coerce')
     undo = (log_id_num == float(recovery_id))
@@ -72,7 +71,9 @@ def undo_inventory_update(undo_id=None):
     undo_log = active_logs.loc[active_logs['log_id'] == undo_id].squeeze()
     action = undo_log['action']
     if action == 'withdrawal':
-        undo_rfid(sp, undo_id, undo_log)
+        customer = undo_log['po_type']
+        if customer in config.get("customers_rfid"):
+            undo_rfid(sp, undo_id, undo_log)
         undo_withdrawal_in_inventory(sp, undo_id, inv_log, config)
         folder_path = undo_log['files_path']
         if pd.notna(folder_path):
@@ -153,7 +154,7 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
 
 
 if __name__ == '__main__':
-    undo_inventory_update(20260908191035)
+    undo_inventory_update(20260909223115)
 
 
 # TODO add updated files to log
