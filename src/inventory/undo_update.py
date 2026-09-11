@@ -73,7 +73,7 @@ def undo_inventory_update(undo_id=None):
     if action == 'withdrawal':
         customer = undo_log['po_type']
         if customer in config.get("customers_rfid"):
-            undo_rfid(sp, undo_id, undo_log)
+            undo_rfid(sp, undo_id, customer)
         undo_withdrawal_in_inventory(sp, undo_id, inv_log, config)
         folder_path = undo_log['files_path']
         if pd.notna(folder_path):
@@ -154,7 +154,7 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
 
 
 if __name__ == '__main__':
-    undo_inventory_update(20260909223115)
+    undo_inventory_update(20260909163754)
 
 
 # TODO add updated files to log
