@@ -123,10 +123,10 @@ data = {
 
 
     "cartons": [
-        {"name": "RM-51", "capacity": 30000, "cost": 24.46, "dimensions": (43, 33, 22)},
-        {"name": "TECLADO", "capacity": 25600, "cost": 24.45, "dimensions": (53, 22, 22)},
-        {"name": "RM-32", "capacity": 18500, "cost": 17.25, "dimensions": (29, 29, 22)},
-        {"name": "RM-31", "capacity": 9000, "cost": 11.5, "dimensions": (30, 21, 14)},
+        {"name": "RM-51", "capacity": 30000, "cost": 11.4, "dimensions": (43, 33, 22)},
+        {"name": "TECLADO", "capacity": 25600, "cost": 10.5, "dimensions": (53, 22, 22)},
+        {"name": "RM-32", "capacity": 18500, "cost": 9, "dimensions": (29, 29, 22)},
+        {"name": "RM-31", "capacity": 9000, "cost": 5.2, "dimensions": (30, 21, 14)},
     ],
 
     "rfid_series": {"liverpool": {"prefix": "C", "digits": 8},
@@ -134,7 +134,7 @@ data = {
 
 
     "po_style_indexes": [
-        C.RD, C.MOVEX_PO, C.PO_NUM, C.SHIPPED, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
+        C.RD, C.MOVEX_PO, C.SECTION, C.PO_NUM, C.SHIPPED, C.WAREHOUSE_CODE, C.STYLE, C.DESCRIPTION,
         C.UPC, C.SKU, C.BUS_KEY, C.BRAND, C.PRODUCT, C.FACTORY, C.COST,
     ],
 

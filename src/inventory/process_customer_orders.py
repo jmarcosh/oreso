@@ -34,32 +34,35 @@ def assign_box_number(sp, po, customer, config, log_id):
     po = assign_box_combos_per_store(po, capacities, costs)
 
     # Assignments
-    stores = po[C.STORE_ID].values
-    row_volume = po['ROW_VOLUME'].values
-    combo = po['COMBO'].values
+    sections = po[C.SECTION].to_numpy()
+    store_ids = po[C.STORE_ID].to_numpy()
+    row_volume = po['ROW_VOLUME'].to_numpy()
+    combos = po['COMBO'].to_numpy()
     box_assignment = []
-    cum_space = []
-    store_prev = -1
+    cum_space = 0.0
+    store_prev, section_prev = -1, -1
     carton_index_in_store = 0
-    # box, end_box = [int(i[len(rfid_prefix):]) for i in rfid_series[rs]]
     rfid_series_df = sp.read_excel(f"config/rfid_{customer.lower()}.xlsx")
     first_col = rfid_series_df.columns[0]
     free_rfid_rows = rfid_series_df.index[rfid_series_df[C.LOG_ID].isna()]
     rfid_series = rfid_series_df.loc[free_rfid_rows, first_col].tolist()
+    n_rfid = len(rfid_series)
     box = - 1
-    for store_s, space_s, combo_s in zip(stores, row_volume, combo):
-        cum_space.append(space_s)
+    for section_s, store_s, space_s, combo_s in zip(sections, store_ids, row_volume, combos):
+        cum_space += space_s
+        has_combo = len(combo_s) > 0
+        new_store = (section_s != section_prev) or (store_s != store_prev)
         max_vol = combo_s[carton_index_in_store] if carton_index_in_store < (len(combo_s) - 1) else capacities[0]
-        if (sum(cum_space) > max_vol) | ((store_s != store_prev) & (len(combo_s) > 0)):
+        if (cum_space > max_vol) or (new_store and has_combo):
             box += 1
             carton_index_in_store += 1
-            cum_space = [space_s]
-        if store_s != store_prev:
+            cum_space = space_s
+        if new_store:
             carton_index_in_store = 0
-            store_prev = store_s
+            section_prev, store_prev = section_s, store_s
         # Assigns RFID label or None based on combo availability; stops on shortage
-        if len(combo_s) > 0:
-            if box < len(rfid_series):
+        if has_combo:
+            if box < n_rfid:
                 box_assignment.append(rfid_series[box])
             else:
                 st.error("Not enough RFID labels available. Please add more RFID labels.")
@@ -82,7 +85,7 @@ def get_cartons_info(cartons):
 def add_box_related_columns(po, box_assignment, names, capacities, dimensions):
     po[C.BOX_ID] = box_assignment
     po['BOX_CHANGE'] = (po[C.BOX_ID] != po[C.BOX_ID].shift()).astype(int)
-    po['BOX_STORE_NUM'] = po.groupby([C.STORE_ID])['BOX_CHANGE'].cumsum()
+    po['BOX_STORE_NUM'] = po.groupby([C.SECTION, C.STORE_ID])['BOX_CHANGE'].cumsum()
     po['BOX_VOLUME'] = po.groupby(C.BOX_ID)['ROW_VOLUME'].transform('sum')
     bins = [x * 1.04 for x in [0] + capacities[::-1]] # account that there's more space in boxes than reported
     bins[-1] *= 2 # avoid errors and fit everything in the last box
@@ -95,13 +98,13 @@ def add_box_related_columns(po, box_assignment, names, capacities, dimensions):
 
 def assign_box_combos_per_store(po, capacities, costs):
     po['ROW_VOLUME'] = (capacities[0] / po[C.PCS_BOX]) * po[C.DELIVERED]
-    store_volumes = po.groupby([C.STORE_ID])['ROW_VOLUME'].sum().reset_index(name='STORE_VOLUME')
+    store_volumes = po.groupby([C.SECTION, C.STORE_ID])['ROW_VOLUME'].sum().reset_index(name='STORE_VOLUME')
     store_volumes['STORE_VOLUME'] = store_volumes[
                                         "STORE_VOLUME"] * 1.04  # to account that a greedy assignment by row leaves empty space
     store_volumes['MAX_CARTON'] = np.ceil(store_volumes['STORE_VOLUME'] / capacities[-1]).astype(int)
     store_volumes['COMBO'] = [find_best_carton_combo(vol, max_crtn, capacities, costs) for
                               vol, max_crtn in zip(store_volumes['STORE_VOLUME'], store_volumes['MAX_CARTON'])]
-    po = po.merge(store_volumes[[C.STORE_ID, 'COMBO']], on=[C.STORE_ID], how='left')
+    po = po.merge(store_volumes[[C.SECTION, C.STORE_ID, 'COMBO']], on=[C.STORE_ID, C.SECTION], how='left')
     return po
 
 def create_po_summary_by_store(po, config):
@@ -110,32 +113,32 @@ def create_po_summary_by_store(po, config):
 
 def upload_po_files_to_sharepoint(sp, po, customer, delivery_date, config, files_save_path):
     po_nums_abbrev = files_save_path.rsplit('/', 1)[-1].split('_', 1)[-1]
-    section = po.loc[0, C.SECTION]
     po_style = create_po_summary_by_style(po, config)
     po_store = create_po_summary_by_store(po, config)
     techsmart = create_and_save_techsmart_txt_file(sp, po, customer, config, files_save_path)
     save_checklist(sp, po_style, po_store, techsmart, config, po_nums_abbrev, files_save_path)
-    create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, section, files_save_path)
+    create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, files_save_path)
     create_and_save_asn_file(sp, po, config, po_nums_abbrev, files_save_path)
     return po_style
 
 
 
-def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, section, files_save_path):
+def create_and_save_delivery_note(sp, po_style, customer, delivery_date, config, files_save_path):
     dn_structure = config["dn_structure"]
     customer_map = config["dn_customers"].get(customer, {})
     dn_discounts =config["dn_discounts"].get(customer, {})
     dn_structure.update(customer_map)
     po_nums_lst = po_style[C.PO_NUM].unique().tolist()
     for po_num in po_nums_lst:
+        po_style_po_num = po_style.loc[(po_style[C.PO_NUM] == po_num)]
         delivery_num = int(dn_structure["NOTA DE REMISION"]) + 1
         for key, value in zip(["NOTA DE REMISION", "Orden de compra:", "Departamento", "Fecha orden de compra:"],
-                              [delivery_num, po_num, section, delivery_date]):
+                              [delivery_num, po_num, po_style_po_num[C.SECTION].iloc[0], delivery_date]):
             dn_structure[key] = str(value)
         dn_structure_df = [[k, v] for k, v in dn_structure.items()]
         blank_row = pd.DataFrame([[]])
         dn_columns = config["dn_columns"]
-        dn = po_style.loc[(po_style[C.PO_NUM] == po_num)].groupby(dn_columns[1:5]).agg({
+        dn = po_style_po_num.groupby(dn_columns[1:5]).agg({
             C.DELIVERED: 'sum', C.CUSTOMER_COST: 'mean'
         }).reset_index()[dn_columns]
         dn['SUBTOTAL'] = (dn[C.DELIVERED] * dn[C.CUSTOMER_COST])

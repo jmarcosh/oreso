@@ -30,7 +30,9 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     po = split_ordered_quantity_by_warehouse_codes(po, columns)
     updated_inv_lst = updated_inv + split_inventory[it+1:]
     updated_inv = concat_inv_lst(updated_inv_lst + [out_of_order])
-    return po.sort_values([C.STORE_ID, *columns]).reset_index(drop=True), updated_inv
+    if C.SECTION not in po.columns:
+        po[C.SECTION] = 0
+    return po.sort_values([C.SECTION, C.STORE_ID, *columns]).reset_index(drop=True), updated_inv
 
 
 
