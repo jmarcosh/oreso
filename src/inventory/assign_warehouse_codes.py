@@ -13,7 +13,6 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     po_missing = po.loc[(po[C.DELIVERED] == 0)].merge(
             split_inventory[1],
             on=columns, how='left')
-    validate_all_po_codes_in_inventory(po_missing, columns)
     po_original_cols = po.columns
     it = 0
     po_wh = [po_missing]
@@ -33,13 +32,6 @@ def assign_warehouse_codes_from_column_and_update_inventory(po, inventory, colum
     updated_inv = concat_inv_lst(updated_inv_lst + [out_of_order])
     return po.sort_values([C.STORE_ID, *columns]).reset_index(drop=True), updated_inv
 
-
-def validate_all_po_codes_in_inventory(po_missing, columns):
-    code_not_found = po_missing.loc[(po_missing[C.STYLE].isna()), columns].drop_duplicates().reset_index(drop=True)
-    if not code_not_found.empty:
-        st.write(f"""The following codes were not found in inventory:""")
-        st.table(code_not_found)
-        st.stop()
 
 
 def concat_inv_lst(dfs):

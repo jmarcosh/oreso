@@ -71,7 +71,7 @@ def auto_assign_po_type(df):
         return 'interno'
     else:
         st.error("Error: File must contain at least one of the following columns: # Prov, Num. Prov, FACTORY, or OC_NUM.")
-        st.stop("Error: File must contain a matching column.")
+        st.stop()
 
 def auto_assign_matching_columns(df, lst):
     stop_cols = [C.WAREHOUSE_CODE, C.SKU, C.UPC, C.STYLE]
@@ -82,9 +82,13 @@ def auto_assign_matching_columns(df, lst):
             if col in stop_cols:
                 return matching_columns
     st.error("Error: File must contain at least one of the following columns: WAREHOUSE_CODE, SKU, UPC, or STYLE.")
-    st.stop("Error: File must contain a matching column.")
+    st.stop()
 
-
+def validate_all_po_codes_in_inventory(inv_mask, po_sku_cols):
+    if inv_mask.sum() == 0:
+        st.error(f"""The following codes were not found in inventory:""")
+        st.table(po_sku_cols)
+        st.stop()
 
 def allocate_stock(po, inventory, cols):
     mask = inventory[C.WAREHOUSE].isin(['on_order', 'inactive'])
@@ -95,6 +99,7 @@ def allocate_stock(po, inventory, cols):
         po_mask = np.logical_and.reduce([(po[c] == v) for c, v in zip(cols, values)])
         inv_mask = np.logical_and.reduce([(inventory_active[c] == v) for c, v in zip(cols, values)])
         po_sku = po[po_mask]
+        validate_all_po_codes_in_inventory(inv_mask, po_sku[cols])
         inventory_sku = inventory_active[inv_mask]
         demand = po_sku[C.ORDERED].sum()
         stock = inventory_sku[C.INVENTORY].sum()
