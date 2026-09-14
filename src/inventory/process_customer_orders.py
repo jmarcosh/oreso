@@ -179,7 +179,7 @@ def sort_rd(rd):
 def create_po_summary_by_style(po, config):
     po_gb = po.groupby(config['po_style_indexes'], dropna=False).agg(config['po_style_values']).reset_index()
     po_gb = po_gb.sort_values(
-        by=[C.RD, C.WAREHOUSE_CODE],
+        by=[C.SECTION, C.RD, C.WAREHOUSE_CODE],
         key=lambda col: col.map(sort_rd) if col.name == 'code' else col,
         ignore_index=True
     )
