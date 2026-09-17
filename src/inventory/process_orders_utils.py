@@ -84,24 +84,23 @@ def auto_assign_matching_columns(df, lst):
     st.error("Error: File must contain at least one of the following columns: WAREHOUSE_CODE, SKU, UPC, or STYLE.")
     st.stop()
 
-def validate_all_po_codes_in_inventory(inv_mask, po_sku_cols):
+def validate_all_po_codes_in_inventory(inv_mask, po_sku_cols, non_existing):
     if inv_mask.sum() == 0:
-        st.error(f"""The following codes were not found in inventory:""")
-        st.table(po_sku_cols)
-        st.stop()
+        non_existing.append(po_sku_cols.drop_duplicates())
 
 def allocate_stock(po, inventory, cols):
-    mask = inventory[C.WAREHOUSE].isin(['on_order', 'inactive'])
-    inventory_active = inventory[~mask].copy()
     code_combinations = po[cols].drop_duplicates().itertuples(index=False, name=None)
     delivered = []
+    non_existing = []
     for values in code_combinations:
         po_mask = np.logical_and.reduce([(po[c] == v) for c, v in zip(cols, values)])
-        inv_mask = np.logical_and.reduce([(inventory_active[c] == v) for c, v in zip(cols, values)])
+        inv_mask = np.logical_and.reduce([(inventory[c] == v) for c, v in zip(cols, values)])
         po_sku = po[po_mask]
-        validate_all_po_codes_in_inventory(inv_mask, po_sku[cols])
-        inventory_sku = inventory_active[inv_mask]
+        validate_all_po_codes_in_inventory(inv_mask, po_sku[cols], non_existing)
+        inventory_sku = inventory[inv_mask]
         demand = po_sku[C.ORDERED].sum()
+        mask = inventory_sku[C.WAREHOUSE].isin(['on_order', 'inactive'])
+        inventory_sku = inventory_sku[~mask].copy()
         stock = inventory_sku[C.INVENTORY].sum()
         if stock >= demand:
             delivered_sku = po_sku[C.ORDERED]
@@ -119,6 +118,10 @@ def allocate_stock(po, inventory, cols):
                 demand_store -= allocate_i
                 stock -= allocate_i.sum()
         delivered.append(delivered_sku)
+    if len(non_existing) > 0:
+        st.error(f"""The following codes were not found in inventory:""")
+        st.table(pd.concat(non_existing))
+        st.stop()
     return np.concatenate(delivered)
 
 
