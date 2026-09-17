@@ -9,7 +9,7 @@ from pandas import DataFrame
 from inventory.common_app import record_log, filter_active_logs, \
     create_and_save_br_summary_table, update_inventory_in_memory, stop_if_locked_files, read_or_create_file, \
     save_purchases_file_and_logs, convert_numeric_id_cols_to_text, add_nan_cols, normalize_date_cols, \
-    InventoryLog
+    InventoryLog, INVENTORY_LOG_PATH
 from inventory.update_items import find_common_rows_with_inventory, get_active_inactive_changes, \
     update_inventory_from_purchases, insert_and_delete_status_rows, restore_inventory_row_and_columns_order
 from inventory.varnames import ColNames as C
@@ -28,20 +28,29 @@ def undo_rfid(sp, recovery_id, customer):
 def undo_withdrawal_in_inventory(sp, recovery_id, inv_log, config):
     records = sp.read_csv("FACTURACION/FACTURACION.csv")
     inventory = sp.read_csv(f"INVENTARIO/SNAPSHOTS/INVENTARIO.csv")
-    for df in [records, inventory]:
+    # the inventory log keeps the withdrawn rows as full inventory rows in their post withdrawal
+    # state, next to the quantity that left, so codes the withdrawal emptied can be rebuilt from it
+    undo = sp.read_csv(INVENTORY_LOG_PATH)
+    for df in [records, inventory, undo]:
         convert_numeric_id_cols_to_text(df, [C.WAREHOUSE_CODE, C.UPC, C.SKU, C.MOVEX_PO])
         normalize_date_cols(df)
-    logid_condition = records[C.LOG_ID] == recovery_id
-    undo = records.loc[logid_condition].copy()
-    records = records.loc[~logid_condition]
+    records = records.loc[records[C.LOG_ID] != recovery_id]
+    undo = undo.loc[undo[C.LOG_ID] == recovery_id].copy()
     merge_cols = [C.MOVEX_PO, C.UPC]
     updated_inv = inventory.merge(undo[merge_cols + [C.DELIVERED]], on=merge_cols, how="left")
     updated_inv[C.DELIVERED] = updated_inv[C.DELIVERED].fillna(0)
     updated_inv[C.INVENTORY] = updated_inv[C.INVENTORY] + updated_inv[C.DELIVERED]
+    # rows the withdrawal left out of the inventory are dismissed by the left merge, so they are
+    # appended back from the log, where every withdrawn row is present
+    unmatched = undo.loc[~pd.MultiIndex.from_frame(undo[merge_cols]).isin(
+        pd.MultiIndex.from_frame(inventory[merge_cols]))].copy()
+    unmatched[C.INVENTORY] = unmatched[C.INVENTORY] + unmatched[C.DELIVERED]
+    updated_inv = pd.concat([updated_inv, unmatched.reindex(columns=updated_inv.columns)],
+                            ignore_index=True)
     returned = updated_inv[C.DELIVERED] != 0
     updated_inv.loc[returned, C.LOG_ID] = inv_log.log_id
     # logged before dropping C.DELIVERED, so the log shows how much came back next to the new quantity
-    inv_log.add(updated_inv.loc[returned], 'modified')
+    inv_log.add(updated_inv.loc[returned], 'undo_withdrawal')
     updated_inv = updated_inv.drop(columns=[C.DELIVERED])
 
     update_inventory_in_memory(sp, updated_inv, inv_log, config)
@@ -154,7 +163,7 @@ def undo_purchases_table(sp: SharePointClient, undo_id: int, undo_log: DataFrame
 
 
 if __name__ == '__main__':
-    undo_inventory_update(20260909163754)
+    undo_inventory_update(20260917200624)
 
 
 # TODO add updated files to log
